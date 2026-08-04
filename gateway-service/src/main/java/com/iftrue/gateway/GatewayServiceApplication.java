@@ -1,4 +1,4 @@
-package com.if_true.gateway_service;
+package com.iftrue.gateway;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

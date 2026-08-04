@@ -1,4 +1,4 @@
-package com.if_true.eureka_service;
+package com.iftrue.eureka;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
