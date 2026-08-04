@@ -1,10 +1,10 @@
 server:
-  port: ${GATEWAY_PORT}
+  port: ${GATEWAY_PORT:19000}
 
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_URI}
+      defaultZone: ${EUREKA_URI:http://localhost:19090/eureka}
 
 
 service:

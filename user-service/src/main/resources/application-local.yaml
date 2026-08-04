@@ -14,15 +14,15 @@ spring:
 
 
 server:
-  port: ${USER_SERVICE_PORT}
+  port: ${USER_SERVICE_PORT:19001}
 
 eureka:
   client:
     serviceUrl:
-      defaultZone: ${EUREKA_URI}
+      defaultZone: ${EUREKA_URI:http://localhost:19090/eureka}
 
 
 service:
   jwt:
-    access-expiration: 3600000
+    access-expiration: ${JWT_ACCESS_EXPIRATION:3600000}
     secret-key: ${JWT_SECRET}
