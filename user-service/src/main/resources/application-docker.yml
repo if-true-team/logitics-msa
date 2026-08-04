@@ -1,0 +1,28 @@
+spring:
+
+  datasource:
+    url: ${POSTGRES_URL}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+
+
+server:
+  port: ${USER_SERVICE_PORT}
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: ${EUREKA_URI}
+
+
+service:
+  jwt:
+    access-expiration: 3600000
+    secret-key: ${JWT_SECRET}

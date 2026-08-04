@@ -1,0 +1,160 @@
+version: "3.8"
+
+services:
+  # ─────────────────────────────────────────────
+  # Infra: PostgreSQL (서비스별 스키마 분리)
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - msa-net
+
+  # ─────────────────────────────────────────────
+  # Infra: Redis (허브 정보 캐싱 등)
+  # ─────────────────────────────────────────────
+
+  redis:
+    image: redis/redis-stack:latest
+    container_name: redis
+    restart: unless-stopped
+
+    ports:
+      - "${REDIS_PORT}:6379"
+      - "8001:8001"
+    environment:
+      REDIS_ARGS: "--requirepass ${REDIS_PASSWORD}"
+
+    volumes:
+      - redis-stack-data:/data
+
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - msa-net
+
+
+  # ─────────────────────────────────────────────
+  # Infra: Zipkin (분산 추적)
+  # ─────────────────────────────────────────────
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    restart: unless-stopped
+    ports:
+      - "${ZIPKIN_PORT}:9411"
+    networks:
+      - msa-net
+
+  # ─────────────────────────────────────────────
+  # Eureka Service (서비스 디스커버리)
+  # ─────────────────────────────────────────────
+  eureka-service:
+    build:
+      context: ./eureka-service
+      dockerfile: Dockerfile
+    container_name: eureka-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      EUREKA_HOSTNAME: eureka-service
+      EUREKA_PORT: ${EUREKA_PORT}
+      EUREKA_URI: http://eureka-service:${EUREKA_PORT}/eureka
+    ports:
+      - "${EUREKA_PORT}:${EUREKA_PORT}"
+    networks:
+      - msa-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:${EUREKA_PORT}/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ─────────────────────────────────────────────
+  # Gateway Service (Spring Cloud Gateway, 인증/라우팅)
+  # ─────────────────────────────────────────────
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    container_name: gateway-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      EUREKA_URI: http://eureka-service:${EUREKA_PORT}/eureka
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "${GATEWAY_PORT}:${GATEWAY_PORT}"
+    depends_on:
+      eureka-service:
+        condition: service_healthy
+    networks:
+      - msa-net
+
+  # ─────────────────────────────────────────────
+  # User Service (회원가입/승인/로그인/JWT 발급)
+  # ─────────────────────────────────────────────
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      USER_SERVICE_PORT: ${USER_SERVICE_PORT}
+      EUREKA_URI: http://eureka-service:${EUREKA_PORT}/eureka
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      ZIPKIN_BASE_URL: http://zipkin:9411
+    ports:
+      - "${USER_SERVICE_PORT}:${USER_SERVICE_PORT}"
+    depends_on:
+      eureka-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - msa-net
+
+networks:
+  msa-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-stack-data:
