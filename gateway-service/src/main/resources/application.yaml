@@ -17,7 +17,7 @@ spring:
             - id: user-service
               uri: lb://user-service
               predicates:
-                - Path=/api/user/** # /users/** 경로로 들어오는 요청을 이 라우트로 처리
+                - Path=/api/v1/users/** # /users/** 경로로 들어오는 요청을 이 라우트로 처리
 
         discovery:
           locator:
