@@ -2,29 +2,13 @@ spring:
   application:
     name: hub-service
 
-  datasource:
-    url: jdbc:postgresql://localhost:5432/hub   # 로컬 개발용 docker-compose.local.yml
-    username: hub
-    password: hub
+  profiles:
+    default: local
 
   jpa:
     hibernate:
-      ddl-auto: update    # 로컬 개발용 (update -> validate)
-    show-sql: true
+      ddl-auto: update
     properties:
       hibernate:
-        format_sql: true  # 로컬 개발용 (public -> hub_schema)
-
-  data:
-    redis:
-      host: localhost
-      port: 6379
-
-eureka:
-  client:
-    enabled: false
-#    service-url:
-#      defaultZone: http://localhost:19090/eureka/
-
-server:
-  port: 19007
+        default_schema: hub_schema
+    open-in-view: false
