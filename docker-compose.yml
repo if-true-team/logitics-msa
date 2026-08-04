@@ -151,6 +151,40 @@ services:
     networks:
       - msa-net
 
+  # ─────────────────────────────────────────────
+  # Hub Service (허브 관리, 허브 간 이동정보 관리)
+  # ─────────────────────────────────────────────
+  hub-service:
+    build:
+      context: ./hub-service
+      dockerfile: Dockerfile
+    container_name: hub-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      HUB_SERVICE_PORT: ${HUB_SERVICE_PORT}
+      EUREKA_URI: http://eureka-service:${EUREKA_PORT}/eureka
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      ZIPKIN_BASE_URL: http://zipkin:9411
+    ports:
+      - "${HUB_SERVICE_PORT}:${HUB_SERVICE_PORT}"
+    depends_on:
+      eureka-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - msa-net
+
 networks:
   msa-net:
     driver: bridge
