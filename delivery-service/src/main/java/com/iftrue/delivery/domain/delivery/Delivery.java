@@ -1,5 +1,6 @@
 package com.iftrue.delivery.domain.delivery;
 
+import com.iftrue.delivery.domain.common.DeletableEntity;
 import com.iftrue.delivery.domain.deliverymanager.DeliveryManager;
 import com.iftrue.delivery.domain.deliveryroute.DeliveryRoute;
 import jakarta.persistence.*;
@@ -7,25 +8,27 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "p_delivery",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_delivery_order_id", columnNames = "order_id")
         }
 )
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Delivery {
+public class Delivery extends DeletableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "order_id", nullable = false)
+    @Column(name = "order_id", nullable = false, unique = true)
     private UUID orderId;
 
     @Column(name = "departure_hub_id", nullable = false)
@@ -99,12 +102,90 @@ public class Delivery {
         );
     }
 
+    public void addRoute(
+            UUID departureHubId,
+            UUID arrivalHubId,
+            int sequence,
+            BigDecimal expectedDistance,
+            Integer expectedDuration
+    ) {
+        validateRouteSequence(sequence);
+        DeliveryRoute route = DeliveryRoute.create(
+                this,
+                departureHubId,
+                arrivalHubId,
+                sequence,
+                expectedDistance,
+                expectedDuration
+        );
+
+        deliveryRoutes.add(route);
+    }
+
+
     private static String requireText(String value, String message) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(message); // TODO: 예외처리는 정리하여 추후 맞는 예외로 모두 수정
         }
 
         return value;
+    }
+
+    public void startHubDelivery(UUID routeId, Instant departedAt) {
+        if (status != DeliveryStatus.WAITING_AT_DEPARTURE_HUB &&
+                status != DeliveryStatus.MOVING_BETWEEN_HUBS) {
+            throw new IllegalStateException("허브 배송 경로를 시작할 수 없는 배송 상태입니다.");
+        }
+
+        DeliveryRoute route = findRoute(routeId);
+
+        route.depart(departedAt);
+
+        this.status = DeliveryStatus.MOVING_BETWEEN_HUBS;
+    }
+
+    public void arriveRoute(
+            UUID routeId,
+            Instant arrivedAt,
+            BigDecimal actualDistance,
+            Integer actualDuration
+    ) {
+        if (status != DeliveryStatus.MOVING_BETWEEN_HUBS) {
+            throw new IllegalStateException("허브 간 이동 중인 배송의 경로만 도착 처리할 수 있습니다.");
+        }
+        DeliveryRoute route = findRoute(routeId);
+
+        route.arrive(
+                arrivedAt,
+                actualDistance,
+                actualDuration
+        );
+
+
+        if (allRoutesArrived()) {
+            this.status = DeliveryStatus.ARRIVED_AT_DESTINATION_HUB;
+        }
+
+    }
+
+    public void startCompanyDelivery() {
+        if (status != DeliveryStatus.ARRIVED_AT_DESTINATION_HUB) {
+            throw new IllegalStateException("목적지 허브 도착 상태에서만 업체 배송을 시작할 수 있습니다.");
+        }
+
+        if (companyDeliveryManagerId == null) {
+            throw new IllegalStateException("업체 배송담당자가 배정되지 않았습니다.");
+        }
+
+        this.status = DeliveryStatus.MOVING_TO_COMPANY;
+    }
+
+    public void completeDelivery() {
+        if (status != DeliveryStatus.MOVING_TO_COMPANY) {
+            throw new IllegalStateException("업체 배송 중인 배송만 완료할 수 있습니다.");
+        }
+
+        this.status = DeliveryStatus.DELIVERED;
     }
 
     public void assignCompanyManager(DeliveryManager manager) {
@@ -116,48 +197,35 @@ public class Delivery {
         this.companyDeliveryManagerId = manager.getId();
     }
 
-    public void startHubDelivery() {
-        if (status != DeliveryStatus.WAITING_AT_DEPARTURE_HUB) {
-            throw new IllegalStateException(
-                    "출발 허브 대기 상태에서만 허브 배송을 시작할 수 있습니다."
-            );
-        }
-
-        this.status = DeliveryStatus.MOVING_BETWEEN_HUBS;
-    }
-
-    public void startCompanyDelivery() {
-        if (status != DeliveryStatus.ARRIVED_AT_DESTINATION_HUB) {
-            throw new IllegalStateException(
-                    "목적지 허브 도착 상태에서만 업체 배송을 시작할 수 있습니다."
-            );
-        }
-
-        if (companyDeliveryManagerId == null) {
-            throw new IllegalStateException(
-                    "업체 배송담당자가 배정되지 않았습니다."
-            );
-        }
-
-        this.status = DeliveryStatus.MOVING_TO_COMPANY;
-    }
-
-    public void arriveAtDestinationHub() {
-        if (status != DeliveryStatus.MOVING_BETWEEN_HUBS) {
-            throw new IllegalStateException(
-                    "허브 간 이동 중인 배송만 목적지 허브에 도착할 수 있습니다."
-            );
-        }
-
-        this.status = DeliveryStatus.ARRIVED_AT_DESTINATION_HUB;
-    }
-
-
     private void validateCompanyManagerAssignmentStatus() {
         if (status != DeliveryStatus.ARRIVED_AT_DESTINATION_HUB) {
-            throw new IllegalStateException(
-                    "목적지 허브에 도착한 배송만 업체 배송담당자를 배정할 수 있습니다."
-            );
+            throw new IllegalStateException("목적지 허브에 도착한 배송만 업체 배송담당자를 배정할 수 있습니다.");
+        }
+    }
+
+    private DeliveryRoute findRoute(UUID routeId) {
+        Objects.requireNonNull(routeId, "배송 경로 ID는 필수입니다.");
+
+        return deliveryRoutes.stream()
+                .filter(route -> route.hasId(routeId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("해당 배송에 속한 배송 경로가 아닙니다."));
+    }
+
+    private boolean allRoutesArrived() {
+        if (deliveryRoutes.isEmpty()) {
+            throw new IllegalStateException("배송 경로가 존재하지 않습니다.");
+        }
+        return deliveryRoutes.stream()
+                .allMatch(DeliveryRoute::isArrived);
+    }
+
+    private void validateRouteSequence(int sequence) {
+        boolean duplicated = deliveryRoutes.stream()
+                .anyMatch(route -> route.hasSequence(sequence));
+
+        if (duplicated) {
+            throw new IllegalArgumentException("배송 경로 순번은 중복될 수 없습니다.");
         }
     }
 

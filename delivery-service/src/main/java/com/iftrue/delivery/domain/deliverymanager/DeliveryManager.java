@@ -9,9 +9,9 @@ import lombok.NoArgsConstructor;
 import java.util.Objects;
 import java.util.UUID;
 
-@Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Entity
 @Table(name = "p_delivery_manager")
 public class DeliveryManager extends DeletableEntity {
 
@@ -19,7 +19,7 @@ public class DeliveryManager extends DeletableEntity {
     private UUID id;
 
     @Column(name = "slack_id", nullable = false, length = 50)
-    private String slack_id;
+    private String slackId;
 
     @Column(name = "hub_id")
     private UUID hubId;
@@ -29,24 +29,95 @@ public class DeliveryManager extends DeletableEntity {
     private DeliveryManagerType type;
 
     @Column(name = "sequence", nullable = false)
-    private Integer sequence;
+    private int sequence;
+
+    private DeliveryManager(
+            UUID id,
+            String slackId,
+            UUID hubId,
+            DeliveryManagerType type,
+            int sequence
+    ) {
+        this.id = Objects.requireNonNull(id, "사용자 ID는 필수입니다.");
+        this.slackId = requireText(slackId, "Slack ID는 필수입니다.");
+        this.type = Objects.requireNonNull(type, "배송담당자 유형은 필수입니다.");
+
+        validateHubId(type, hubId);
+        validateSequence(sequence);
+
+        this.hubId = hubId;
+        this.sequence = sequence;
+    }
+
+    public static DeliveryManager create(
+            UUID id,
+            String slack_id,
+            UUID hubId,
+            DeliveryManagerType type,
+            int sequence
+    ) {
+        return new DeliveryManager(
+                id,
+                slack_id,
+                hubId,
+                type,
+                sequence
+        );
+    }
+
+    private static void validateSequence(int sequence) {
+        if (sequence < 1) {
+            throw new IllegalArgumentException("배송담당자 순번은 1 이상이어야 합니다.");
+        }
+    }
+
+    private static String requireText(
+            String value,
+            String message
+    ) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(message);
+        }
+        return value;
+    }
+
+    private static void validateHubId(
+            DeliveryManagerType type,
+            UUID hubId
+    ) {
+        if (type == DeliveryManagerType.COMPANY && hubId == null) {
+            throw new IllegalArgumentException("업체 배송담당자는 허브 ID가 필수입니다.");
+        }
+
+        if (type == DeliveryManagerType.HUB && hubId != null) {
+            throw new IllegalArgumentException("허브 배송담당자는 허브 ID를 가질 수 없습니다.");
+        }
+    }
 
     public void validateCompanyDeliveryAssignable(UUID destinationHubId) {
         if (type != DeliveryManagerType.COMPANY) {
+            throw new IllegalStateException("업체 배송담당자만 업체 배송을 담당할 수 있습니다.");
+        }
+
+        if (isDeleted()) {
+            throw new IllegalStateException("삭제된 배송담당자는 배정할 수 없습니다.");
+        }
+
+        if (!Objects.equals(hubId, destinationHubId)) {
+            throw new IllegalStateException("목적지 허브 소속 배송담당자가 아닙니다.");
+        }
+    }
+
+    public void validateHubDeliveryAssignable() {
+        if (type != DeliveryManagerType.HUB) {
             throw new IllegalStateException(
-                    "업체 배송담당자만 업체 배송을 담당할 수 있습니다."
+                    "허브 배송담당자만 허브 간 배송을 담당할 수 있습니다."
             );
         }
 
         if (isDeleted()) {
             throw new IllegalStateException(
                     "삭제된 배송담당자는 배정할 수 없습니다."
-            );
-        }
-
-        if (!Objects.equals(hubId, destinationHubId)) {
-            throw new IllegalStateException(
-                    "목적지 허브 소속 배송담당자가 아닙니다."
             );
         }
     }
