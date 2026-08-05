@@ -84,24 +84,33 @@ public class Order {
         this.status = OrderStatus.PENDING;
     }
 
-    public void confirm() {
-        changeStatus(OrderStatus.CONFIRMED);
-    }
-
-    public void fail() {
-        changeStatus(OrderStatus.FAILED);
-    }
-    public void cancel() {
-        changeStatus(OrderStatus.CANCELED);
-    }
-    public void complete() {
-        changeStatus(OrderStatus.COMPLETED);
-    }
-
     public static Order create(UUID receiverCompanyId, UUID supplierCompanyId,
                                UUID productId, int quantity, String requestMessage) {
         validateQuantity(quantity);
+        validateRequestMessage(requestMessage);
         return new Order(receiverCompanyId, supplierCompanyId, productId, quantity, requestMessage);
+    }
+
+    public void updateRequestMessage(String requestMessage) {
+        validateRequestMessageModifiable();
+        validateRequestMessage(requestMessage);
+
+        this.requestMessage = requestMessage;
+    }
+
+    public void confirm() {
+        changeStatus(OrderStatus.CONFIRMED);
+    }
+    public void fail() {
+        changeStatus(OrderStatus.FAILED);
+    }
+
+    public void cancel() {
+        changeStatus(OrderStatus.CANCELED);
+    }
+
+    public void complete() {
+        changeStatus(OrderStatus.COMPLETED);
     }
 
     private void changeStatus(OrderStatus requestStatus) {
@@ -130,6 +139,18 @@ public class Order {
     private static void validateQuantity(int quantity) {
         if (quantity <= 0) {
             throw new BusinessException(OrderErrorCode.INSUFFICIENT_ORDER_QUANTITY);
+        }
+    }
+
+    private void validateRequestMessageModifiable() {
+        if (this.status != OrderStatus.PENDING) {
+            throw new BusinessException(OrderErrorCode.ORDER_MODIFICATION_NOT_ALLOWED);
+        }
+    }
+
+    private static void validateRequestMessage(String requestMessage) {
+        if (requestMessage == null || requestMessage.isBlank()) {
+            throw new BusinessException(OrderErrorCode.INVALID_INPUT);
         }
     }
 
