@@ -9,9 +9,10 @@ spring:
     import: optional:file:./.env[.properties]
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/order_db
-    username: order
-    password: order1234
+    url: ${POSTGRES_URL}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
 
   jpa:
     open-in-view: false
