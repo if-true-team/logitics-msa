@@ -1,17 +1,17 @@
 spring:
   datasource:
-    url: jdbc:postgresql://postgres:5432/msa
-    username: postgres
-    password: postgres
+    url: ${POSTGRES_URL}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
 
   jpa:
     hibernate:
       ddl-auto: update
     properties:
       hibernate:
-        default_schema: delivery_schema
+        default_schema: ${POSTGRES_SCHEMA:delivery_schema}
 
 eureka:
   client:
     service-url:
-      defaultZone: http://discovery-service:8761/eureka
+      defaultZone: ${EUREKA_URI}

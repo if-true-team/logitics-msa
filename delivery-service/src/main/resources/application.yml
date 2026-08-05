@@ -6,7 +6,4 @@ spring:
       
   jpa:
     open-in-view: false
-    properties:
-      hibernate:
-        default_schema: delivery_schema
 
