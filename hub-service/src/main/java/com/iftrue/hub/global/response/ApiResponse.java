@@ -20,11 +20,11 @@ public class ApiResponse<T> {
         this.data = data;
     }
 
-    private static <T> ApiResponse<T> success(T data) {
+    public static <T> ApiResponse<T> success(T data) {
         return new ApiResponse<>(HttpStatus.OK, data);
     }
 
-    private static <T> ApiResponse<T> created(T data) {
+    public static <T> ApiResponse<T> created(T data) {
         return new ApiResponse<>(HttpStatus.CREATED, data);
     }
 }
