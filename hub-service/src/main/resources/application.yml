@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: hub-service
+
+  profiles:
+    default: local
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        default_schema: hub_schema
+    open-in-view: false
