@@ -18,11 +18,7 @@ import java.util.UUID;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Table(name = "p_delivery",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_delivery_order_id", columnNames = "order_id")
-        }
-)
+@Table(name = "p_delivery")
 public class Delivery extends DeletableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -69,17 +65,11 @@ public class Delivery extends DeletableEntity {
             String recipientSlackId
     ) {
         this.orderId = Objects.requireNonNull(orderId, "주문 ID는 필수입니다."); // TODO: 예외처리는 정리하여 추후 맞는 예외로 모두 수정
-
         this.departureHubId = Objects.requireNonNull(departureHubId, "출발 허브 ID는 필수입니다.");
-
         this.destinationHubId = Objects.requireNonNull(destinationHubId, "도착 허브 ID는 필수입니다.");
-
         this.deliveryAddress = requireText(deliveryAddress, "배송 주소는 필수입니다.");
-
         this.recipientName = requireText(recipientName, "수령인 이름은 필수입니다.");
-
         this.recipientSlackId = requireText(recipientSlackId, "수령인 Slack ID는 필수입니다.");
-
         this.status = DeliveryStatus.WAITING_AT_DEPARTURE_HUB;
     }
 
@@ -102,6 +92,7 @@ public class Delivery extends DeletableEntity {
         );
     }
 
+    // 배송 경로 구성
     public void addRoute(
             UUID departureHubId,
             UUID arrivalHubId,
@@ -109,6 +100,10 @@ public class Delivery extends DeletableEntity {
             BigDecimal expectedDistance,
             Integer expectedDuration
     ) {
+        if (status != DeliveryStatus.WAITING_AT_DEPARTURE_HUB) {
+            throw new IllegalStateException("출발 허브 대기 상태에서만 배송 경로를 추가할 수 있습니다.");
+        }
+
         validateRouteSequence(sequence);
         DeliveryRoute route = DeliveryRoute.create(
                 this,
@@ -122,23 +117,15 @@ public class Delivery extends DeletableEntity {
         deliveryRoutes.add(route);
     }
 
-
-    private static String requireText(String value, String message) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(message); // TODO: 예외처리는 정리하여 추후 맞는 예외로 모두 수정
-        }
-
-        return value;
-    }
-
-    public void startHubDelivery(UUID routeId, Instant departedAt) {
+    // 허브 배송
+    public void startRoute(UUID routeId, Instant departedAt) {
         if (status != DeliveryStatus.WAITING_AT_DEPARTURE_HUB &&
                 status != DeliveryStatus.MOVING_BETWEEN_HUBS) {
             throw new IllegalStateException("허브 배송 경로를 시작할 수 없는 배송 상태입니다.");
         }
 
         DeliveryRoute route = findRoute(routeId);
-
+        validatePreviousRouteArrived(route);
         route.depart(departedAt);
 
         this.status = DeliveryStatus.MOVING_BETWEEN_HUBS;
@@ -168,6 +155,16 @@ public class Delivery extends DeletableEntity {
 
     }
 
+    // 업체 배송
+    public void assignCompanyManager(DeliveryManager manager) {
+        Objects.requireNonNull(manager, "배송담당자는 필수입니다.");
+
+        validateCompanyManagerAssignmentStatus();
+        manager.validateCompanyDeliveryAssignable(destinationHubId);
+
+        this.companyDeliveryManagerId = manager.getId();
+    }
+
     public void startCompanyDelivery() {
         if (status != DeliveryStatus.ARRIVED_AT_DESTINATION_HUB) {
             throw new IllegalStateException("목적지 허브 도착 상태에서만 업체 배송을 시작할 수 있습니다.");
@@ -188,21 +185,8 @@ public class Delivery extends DeletableEntity {
         this.status = DeliveryStatus.DELIVERED;
     }
 
-    public void assignCompanyManager(DeliveryManager manager) {
-        Objects.requireNonNull(manager, "배송담당자는 필수입니다.");
 
-        validateCompanyManagerAssignmentStatus();
-        manager.validateCompanyDeliveryAssignable(destinationHubId);
-
-        this.companyDeliveryManagerId = manager.getId();
-    }
-
-    private void validateCompanyManagerAssignmentStatus() {
-        if (status != DeliveryStatus.ARRIVED_AT_DESTINATION_HUB) {
-            throw new IllegalStateException("목적지 허브에 도착한 배송만 업체 배송담당자를 배정할 수 있습니다.");
-        }
-    }
-
+    // 조회성 도메인 메서드
     private DeliveryRoute findRoute(UUID routeId) {
         Objects.requireNonNull(routeId, "배송 경로 ID는 필수입니다.");
 
@@ -220,6 +204,44 @@ public class Delivery extends DeletableEntity {
                 .allMatch(DeliveryRoute::isArrived);
     }
 
+    // 검증
+    private void validateCompanyManagerAssignmentStatus() {
+        if (status != DeliveryStatus.ARRIVED_AT_DESTINATION_HUB) {
+            throw new IllegalStateException("목적지 허브에 도착한 배송만 업체 배송담당자를 배정할 수 있습니다.");
+        }
+
+//        if (companyDeliveryManagerId != null) { // NOTE: 재배정 막을시 넣을것, 지금은 수정도 가능할거같아 주석처리
+//            throw new IllegalStateException("이미 업체 배송담당자가 배정되어 있습니다.");
+//        }
+    }
+
+    private void validatePreviousRouteArrived(
+            DeliveryRoute targetRoute
+    ) {
+        if (targetRoute.isFirstRoute()) {
+            return;
+        }
+
+        DeliveryRoute previousRoute = deliveryRoutes.stream()
+                .filter(route ->
+                        route.hasSequence(
+                                targetRoute.getSequence() - 1
+                        )
+                )
+                .findFirst()
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "이전 순번의 배송 경로가 없습니다."
+                        )
+                );
+
+        if (!previousRoute.isArrived()) {
+            throw new IllegalStateException(
+                    "이전 배송 경로가 도착해야 다음 경로를 시작할 수 있습니다."
+            );
+        }
+    }
+
     private void validateRouteSequence(int sequence) {
         boolean duplicated = deliveryRoutes.stream()
                 .anyMatch(route -> route.hasSequence(sequence));
@@ -229,5 +251,12 @@ public class Delivery extends DeletableEntity {
         }
     }
 
+    // 공통 값 검증
+    private static String requireText(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(message); // TODO: 예외처리는 정리하여 추후 맞는 예외로 모두 수정
+        }
+        return value;
+    }
 
 }

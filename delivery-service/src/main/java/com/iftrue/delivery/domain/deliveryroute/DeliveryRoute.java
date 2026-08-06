@@ -16,15 +16,7 @@ import java.util.UUID;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Table(
-        name = "p_delivery_route",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_delivery_route_sequence",
-                        columnNames = {"delivery_id", "sequence"}
-                )
-        }
-)
+@Table(name = "p_delivery_route")
 public class DeliveryRoute extends DeletableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -60,7 +52,7 @@ public class DeliveryRoute extends DeletableEntity {
     private BigDecimal expectedDistance;
 
     @Column(name = "expected_duration", nullable = false)
-    private Integer expectedDuration;
+    private int expectedDuration;
 
     @Column(name = "actual_distance", precision = 10, scale = 2)
     private BigDecimal actualDistance;
@@ -73,14 +65,22 @@ public class DeliveryRoute extends DeletableEntity {
             UUID departureHubId,
             UUID arrivalHubId,
             int sequence,
-            HubDeliveryStatus status
+            BigDecimal expectedDistance,
+            Integer expectedDuration
 
     ) {
-        this.delivery = delivery;
-        this.departureHubId = departureHubId;
-        this.arrivalHubId = arrivalHubId;
+        this.delivery = Objects.requireNonNull(delivery, "배송은 필수입니다.");
+        this.departureHubId = Objects.requireNonNull(departureHubId, "출발 허브 ID는 필수입니다.");
+        this.arrivalHubId = Objects.requireNonNull(arrivalHubId, "도착 허브 ID는 필수입니다.");
+
+        validateSequence(sequence);
+        validateExpectedDistance(expectedDistance);
+        validateExpectedDuration(expectedDuration);
+
         this.sequence = sequence;
-        this.status = status;
+        this.status = HubDeliveryStatus.WAITING_FOR_DEPARTURE;
+        this.expectedDistance = expectedDistance;
+        this.expectedDuration = expectedDuration;
 
     }
 
@@ -90,18 +90,19 @@ public class DeliveryRoute extends DeletableEntity {
             UUID arrivalHubId,
             int sequence,
             BigDecimal expectedDistance,
-            Integer expectedDuration
+            int expectedDuration
     ) {
         return new DeliveryRoute(
                 delivery,
                 departureHubId,
                 arrivalHubId,
                 sequence,
-                HubDeliveryStatus.WAITING_FOR_DEPARTURE
+                expectedDistance,
+                expectedDuration
         );
     }
 
-
+    // 허브 배송 담당자 배정
     public void assignHubDeliveryManager(DeliveryManager manager) {
         Objects.requireNonNull(manager, "배송담당자는 필수입니다.");
 
@@ -111,9 +112,11 @@ public class DeliveryRoute extends DeletableEntity {
 
         manager.validateHubDeliveryAssignable();
 
+        // 현재 정책: 출발 전에는 담당자 재배정을 허용한다.
         this.hubDeliveryManagerId = manager.getId();
     }
 
+    // 허브 배송 상태 전이, 배송 출발
     public void depart(Instant departedAt) {
         if (status != HubDeliveryStatus.WAITING_FOR_DEPARTURE) {
             throw new IllegalStateException("출발 대기 상태의 배송 경로만 출발할 수 있습니다.");
@@ -156,6 +159,7 @@ public class DeliveryRoute extends DeletableEntity {
         this.status = HubDeliveryStatus.ARRIVED;
     }
 
+    // 조회성 도메인 메서드
     public boolean isArrived() {
         return status == HubDeliveryStatus.ARRIVED;
     }
@@ -164,6 +168,40 @@ public class DeliveryRoute extends DeletableEntity {
         return Objects.equals(this.id, routeId);
     }
 
+
+    public boolean hasSequence(int sequence) {
+        return this.sequence == sequence;
+    }
+
+    public boolean isFirstRoute() {
+        return sequence == 1;
+    }
+
+    // 생성값 검증
+    private static void validateSequence(int sequence) {
+        if (sequence < 1) {
+            throw new IllegalArgumentException("배송 경로 순번은 1 이상이어야 합니다.");
+        }
+    }
+
+    private static void validateExpectedDistance(
+            BigDecimal expectedDistance
+    ) {
+        if (expectedDistance == null
+                || expectedDistance.signum() < 0) {
+            throw new IllegalArgumentException("예상 거리는 0 이상이어야 합니다.");
+        }
+    }
+
+    private static void validateExpectedDuration(
+            int expectedDuration
+    ) {
+        if (expectedDuration < 0) {
+            throw new IllegalArgumentException("예상 소요 시간은 0 이상이어야 합니다.");
+        }
+    }
+
+    // 도착값 검증
     private static void validateActualDistance(BigDecimal actualDistance) {
         if (actualDistance == null || actualDistance.signum() < 0) {
             throw new IllegalArgumentException("실제 거리는 0 이상이어야 합니다.");
@@ -175,10 +213,4 @@ public class DeliveryRoute extends DeletableEntity {
             throw new IllegalArgumentException("실제 소요 시간은 0 이상이어야 합니다.");
         }
     }
-
-    public boolean hasSequence(int sequence) {
-        return this.sequence == sequence;
-    }
-
-
 }
