@@ -6,10 +6,16 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     properties:
       hibernate:
         default_schema: ${POSTGRES_SCHEMA:delivery_schema}
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas: delivery_schema
+    default-schema: delivery_schema
 
 eureka:
   client:
