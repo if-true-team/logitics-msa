@@ -230,15 +230,11 @@ public class Delivery extends DeletableEntity {
                 )
                 .findFirst()
                 .orElseThrow(() ->
-                        new IllegalStateException(
-                                "이전 순번의 배송 경로가 없습니다."
-                        )
+                        new IllegalStateException("이전 순번의 배송 경로가 없습니다.")
                 );
 
         if (!previousRoute.isArrived()) {
-            throw new IllegalStateException(
-                    "이전 배송 경로가 도착해야 다음 경로를 시작할 수 있습니다."
-            );
+            throw new IllegalStateException("이전 배송 경로가 도착해야 다음 경로를 시작할 수 있습니다.");
         }
     }
 
