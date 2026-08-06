@@ -6,8 +6,11 @@ import com.iftrue.hub.domain.Hub;
 import com.iftrue.hub.domain.HubRepository;
 import com.iftrue.hub.global.exception.BusinessException;
 import com.iftrue.hub.global.exception.ErrorCode;
+import com.iftrue.hub.global.response.PageResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,5 +52,15 @@ public class HubService {
         log.info("[Hub] 허브 단건 조회 id={}", hubId);
 
         return HubResponseDto.from(hub);
+    }
+
+    public PageResponse<HubResponseDto> getHubs(Pageable pageable) {
+        Page<HubResponseDto> hubPage = hubRepository.findAllByDeletedAtIsNull(pageable)
+                .map(HubResponseDto::from);
+
+        log.info("[Hub] 허브 목록 조회 page={} size={} totalElements={}",
+                hubPage.getNumber(), hubPage.getSize(), hubPage.getTotalElements());
+
+        return PageResponse.from(hubPage);
     }
 }
