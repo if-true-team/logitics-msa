@@ -50,11 +50,11 @@ public class HubServiceTest {
 
         HubResponseDto response = hubService.createHub(request);
 
-        assertThat(response.getId()).isEqualTo(hubId);
-        assertThat(response.getName()).isEqualTo("서울특별시 센터");
-        assertThat(response.getAddress()).isEqualTo("서울특별시 송파구 송파대로 55");
-        assertThat(response.getLatitude()).isEqualByComparingTo("10.555555");
-        assertThat(response.getLongitude()).isEqualByComparingTo("120.333333");
+        assertThat(response.id()).isEqualTo(hubId);
+        assertThat(response.name()).isEqualTo("서울특별시 센터");
+        assertThat(response.address()).isEqualTo("서울특별시 송파구 송파대로 55");
+        assertThat(response.latitude()).isEqualByComparingTo("10.555555");
+        assertThat(response.longitude()).isEqualByComparingTo("120.333333");
         verify(hubRepository).save(any(Hub.class));
     }
 

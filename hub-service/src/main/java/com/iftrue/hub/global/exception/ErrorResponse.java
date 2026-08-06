@@ -2,23 +2,23 @@ package com.iftrue.hub.global.exception;
 
 import lombok.Getter;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 @Getter
 public class ErrorResponse {
 
-    private final LocalDateTime timestamp;
+    private final OffsetDateTime timestamp;
     private final String code;
     private final int status;
     private final String message;
-    private final Map<String, String> errors;
+    private final Map<String, Object> errors;
 
     private ErrorResponse(
             ErrorCode errorCode,
-            Map<String, String> errors
+            Map<String, Object> errors
     ) {
-        this.timestamp = LocalDateTime.now();
+        this.timestamp = OffsetDateTime.now();
         this.code = errorCode.getCode();
         this.status = errorCode.getStatus().value();
         this.message = errorCode.getMessage();
@@ -31,7 +31,7 @@ public class ErrorResponse {
 
     public static ErrorResponse of(
             ErrorCode errorCode,
-            Map<String, String> errors
+            Map<String, Object> errors
     ) {
         return new ErrorResponse(errorCode, errors);
     }

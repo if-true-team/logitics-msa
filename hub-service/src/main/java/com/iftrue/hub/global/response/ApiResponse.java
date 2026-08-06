@@ -3,18 +3,18 @@ package com.iftrue.hub.global.response;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Getter
 public class ApiResponse<T> {
 
-    private final LocalDateTime timestamp;
+    private final OffsetDateTime timestamp;
     private final int status;
     private final String code;
     private final T data;
 
     public ApiResponse(HttpStatus status, T data) {
-        this.timestamp = LocalDateTime.now();
+        this.timestamp = OffsetDateTime.now();
         this.status = status.value();
         this.code = "success";
         this.data = data;

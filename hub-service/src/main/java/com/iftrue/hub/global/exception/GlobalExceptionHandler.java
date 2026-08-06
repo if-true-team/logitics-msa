@@ -31,7 +31,7 @@ public class GlobalExceptionHandler {
 
         ErrorCode errorCode = ErrorCode.INVALID_INPUT_VALUE;
 
-        Map<String, String> errors = new LinkedHashMap<>();
+        Map<String, Object> errors = new LinkedHashMap<>();
         for (FieldError fieldError : exception.getBindingResult().getFieldErrors()) {
             errors.put(fieldError.getField(), fieldError.getDefaultMessage());
         }
