@@ -14,14 +14,16 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      services: ${{ steps.filter.outputs.changes }}
+      services: ${{ steps.service-filter.outputs.changes }}
+
+      skip-test: ${{ steps.skip-filter.outputs.skip-test }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
       - name: Detect changed services
-        id: filter
+        id: service-filter
         uses: dorny/paths-filter@v4
         with:
           filters: |
@@ -43,6 +45,19 @@ jobs:
               - 'delivery-service/**'
             notification-service:
               - 'notification-service/**'
+            
+
+      - name: Detect skip-test changes
+        id: skip-filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            skip-test:
+              - '.github/**'
+              - 'docker-compose.yml'
+              - 'README.md'
+              - 'docs/**'
+              - '.gitignore'
 
   build-and-test:
     needs: detect-changes
@@ -117,3 +132,45 @@ jobs:
       - name: Test
         working-directory: ${{ matrix.service }}
         run: ./gradlew test --stacktrace
+
+  ci-result:
+    name: CI Result
+    needs:
+      - detect-changes
+      - build-and-test
+
+    if: always()
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check build and test result
+        run: |
+          echo "services: ${{ needs.detect-changes.outputs.services }}"
+          echo "skip-test: ${{ needs.detect-changes.outputs.skip-test }}"
+          echo "detect-changes result: ${{ needs.detect-changes.result }}"
+          echo "build-and-test result: ${{ needs.build-and-test.result }}"
+          
+          # detect-changes job 자체 실패 시 CI 실패 처리
+          if [ "${{ needs.detect-changes.result }}" != "success" ]; then
+            echo "Detect changes job failed."
+            exit 1
+          fi
+               
+          # 서비스 변경 없이 테스트 제외 대상만 변경된 경우
+          # build-and-test job은 skipped 되므로 정상 종료 처리
+          if [ "${{ needs.detect-changes.outputs.services }}" = "[]" ] &&
+             [ "${{ needs.detect-changes.outputs.skip-test }}" = "true" ]; then
+            echo "No service changes detected. Skip build and test."
+            echo "CI passed"
+            exit 0
+          fi
+          
+          # 서비스 변경이 있는 경우 build-and-test 결과 검증
+          # failure, cancelled, skipped 모두 실패 처리
+          if [ "${{ needs.build-and-test.result }}" != "success" ]; then
+            echo "Build and test failed: ${{ needs.build-and-test.result }}"
+            exit 1
+          fi
+    
+          echo "CI passed"
