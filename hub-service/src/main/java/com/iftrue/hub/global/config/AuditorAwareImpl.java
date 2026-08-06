@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import java.util.Optional;
 import java.util.UUID;
 
-@Component
+@Component("auditorAwareImpl")
 @RequiredArgsConstructor
 public class AuditorAwareImpl implements AuditorAware<UUID> {
 
