@@ -20,11 +20,12 @@ public abstract class DeletableEntity extends UpdatableEntity {
         return deletedAt != null;
     }
 
-    public void delete() {
+    public void delete(String deletedBy) {
         if (isDeleted()) {
             throw new IllegalStateException("이미 삭제된 데이터입니다.");
         }
 
         this.deletedAt = Instant.now();
+        this.deletedBy = deletedBy;
     }
 }
