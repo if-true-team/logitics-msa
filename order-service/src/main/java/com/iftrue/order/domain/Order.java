@@ -1,5 +1,7 @@
 package com.iftrue.order.domain;
 
+import com.iftrue.order.global.exception.BusinessException;
+import com.iftrue.order.global.exception.OrderErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -71,5 +73,85 @@ public class Order {
 
     @Column(name = "deleted_by")
     private UUID deletedBy;
+
+    private Order(UUID receiverCompanyId, UUID supplierCompanyId,
+                  UUID productId, int quantity, String requestMessage) {
+        this.receiverCompanyId = receiverCompanyId;
+        this.supplierCompanyId = supplierCompanyId;
+        this.productId = productId;
+        this.quantity = quantity;
+        this.requestMessage = requestMessage;
+        this.status = OrderStatus.PENDING;
+    }
+
+    public static Order create(UUID receiverCompanyId, UUID supplierCompanyId,
+                               UUID productId, int quantity, String requestMessage) {
+        validateQuantity(quantity);
+        validateRequestMessage(requestMessage);
+        return new Order(receiverCompanyId, supplierCompanyId, productId, quantity, requestMessage);
+    }
+
+    public void updateRequestMessage(String requestMessage) {
+        validateRequestMessageModifiable();
+        validateRequestMessage(requestMessage);
+
+        this.requestMessage = requestMessage;
+    }
+
+    public void confirm() {
+        changeStatus(OrderStatus.CONFIRMED);
+    }
+    public void fail() {
+        changeStatus(OrderStatus.FAILED);
+    }
+
+    public void cancel() {
+        changeStatus(OrderStatus.CANCELED);
+    }
+
+    public void complete() {
+        changeStatus(OrderStatus.COMPLETED);
+    }
+
+    private void changeStatus(OrderStatus requestStatus) {
+        validateStatus(requestStatus);
+        this.status = requestStatus;
+    }
+
+    private void validateStatus(OrderStatus requestStatus) {
+        boolean valid = switch (this.status) {
+            case PENDING ->
+                requestStatus == OrderStatus.CONFIRMED
+                        || requestStatus == OrderStatus.FAILED;
+
+            case CONFIRMED ->
+                requestStatus == OrderStatus.COMPLETED
+                        || requestStatus == OrderStatus.CANCELED;
+
+            case FAILED, CANCELED, COMPLETED -> false;
+        };
+
+        if (!valid) {
+            throw new BusinessException(OrderErrorCode.INVALID_ORDER_STATUS);
+        }
+    }
+
+    private static void validateQuantity(int quantity) {
+        if (quantity <= 0) {
+            throw new BusinessException(OrderErrorCode.INSUFFICIENT_ORDER_QUANTITY);
+        }
+    }
+
+    private void validateRequestMessageModifiable() {
+        if (this.status != OrderStatus.PENDING) {
+            throw new BusinessException(OrderErrorCode.ORDER_MODIFICATION_NOT_ALLOWED);
+        }
+    }
+
+    private static void validateRequestMessage(String requestMessage) {
+        if (requestMessage == null || requestMessage.isBlank()) {
+            throw new BusinessException(OrderErrorCode.INVALID_INPUT);
+        }
+    }
 
 }
