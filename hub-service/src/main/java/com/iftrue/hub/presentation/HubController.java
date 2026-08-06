@@ -6,13 +6,14 @@ import com.iftrue.hub.application.dto.HubResponseDto;
 import com.iftrue.hub.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/hubs")
@@ -29,5 +30,11 @@ public class HubController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.created(response));
+    }
+
+    @GetMapping("/{hubId}")
+    public ResponseEntity<ApiResponse<HubResponseDto>> getHub(@PathVariable UUID hubId) {
+        HubResponseDto response = hubService.getHub(hubId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }
