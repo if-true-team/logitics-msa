@@ -68,6 +68,22 @@ class HubRepositoryTest {
                 .doesNotContain(deletedSaved.getId());
     }
 
+    @Test
+    @DisplayName("soft deleted된 허브를 제외하고, 키워드로 이름이 부분 검색 된다")
+    void searchByKeyword() {
+        Hub seoul = hubRepository.save(hub("서울특별시 센터"));
+        Hub busan = hubRepository.save(hub("부산광역시 센터"));
+        Hub deleted = hub("서울외곽 센터");
+        deleted.softDelete(UUID.randomUUID());
+        Hub deletedSaved = hubRepository.save(deleted);
+
+        Page<Hub> page = hubRepository.search("서울", PageRequest.of(0, 100));
+
+        assertThat(page.getContent()).extracting(Hub::getId)
+                .contains(seoul.getId())
+                .doesNotContain(busan.getId(), deletedSaved.getId());
+    }
+
     private Hub hub(String name) {
         return Hub.create(
                 name,

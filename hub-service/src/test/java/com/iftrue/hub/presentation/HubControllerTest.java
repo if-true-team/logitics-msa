@@ -127,6 +127,18 @@ class HubControllerTest {
                 .andExpect(jsonPath("$.data.pageInfo.totalElements").value(1));
     }
 
+    @Test
+    @DisplayName("허브를 keyword 없이 검색해도 성공 처리로 보정되어 응답한다")
+    void searchHubWithoutKeyword() throws Exception {
+        given(hubService.searchHub(any(), any(Pageable.class)))
+                .willReturn(samplePage());
+
+        mockMvc.perform(get("/api/v1/hubs/search"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("success"))
+                .andExpect(jsonPath("$.data.pageInfo.paginationType").value("OFFSET"));
+    }
+
     private HubResponseDto sampleResponse(UUID id) {
         Hub hub = Hub.create(
                 "서울특별시 센터",
@@ -135,5 +147,11 @@ class HubControllerTest {
                 new BigDecimal("120.333333"));
         ReflectionTestUtils.setField(hub, "id", id);
         return HubResponseDto.from(hub);
+    }
+
+    private PageResponse<HubResponseDto> samplePage() {
+        return PageResponse.from(new PageImpl<>(
+                List.of(sampleResponse(UUID.randomUUID())),
+                PageRequest.of(0, 10), 1));
     }
 }
