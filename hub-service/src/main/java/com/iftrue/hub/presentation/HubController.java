@@ -9,7 +9,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -44,8 +43,18 @@ public class HubController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<HubResponseDto>>> getHubs(
-            @PageableDefault(size = 10, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
+            @PageableDefault(size = 10) Pageable pageable
+    ) {
         PageResponse<HubResponseDto> response = hubService.getHubs(pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<PageResponse<HubResponseDto>>> searchHub(
+            @RequestParam(required = false) String keyword,
+            @PageableDefault(size = 10) Pageable pageable
+    ) {
+        PageResponse<HubResponseDto> response = hubService.searchHub(keyword, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }
