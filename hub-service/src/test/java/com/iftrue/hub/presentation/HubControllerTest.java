@@ -6,22 +6,27 @@ import com.iftrue.hub.application.dto.HubResponseDto;
 import com.iftrue.hub.domain.Hub;
 import com.iftrue.hub.global.exception.BusinessException;
 import com.iftrue.hub.global.exception.ErrorCode;
+import com.iftrue.hub.global.response.PageResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -102,6 +107,24 @@ class HubControllerTest {
                 .andExpect(jsonPath("$.code").value("H-006"))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.errors.hubId").exists());
+    }
+
+    @Test
+    @DisplayName("허브 목록 조회 시 목록 응답 컨벤션 형태로 반환한다")
+    void getHubs() throws Exception {
+        PageResponse<HubResponseDto> pageResponse = PageResponse.from(
+                new PageImpl<>(List.of(sampleResponse(UUID.randomUUID())),
+                        PageRequest.of(0, 10), 1));
+        given(hubService.getHubs(any(Pageable.class))).willReturn(pageResponse);
+
+        mockMvc.perform(get("/api/v1/hubs")
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("success"))
+                .andExpect(jsonPath("$.data.content[0].name").value("서울특별시 센터"))
+                .andExpect(jsonPath("$.data.pageInfo.paginationType").value("OFFSET"))
+                .andExpect(jsonPath("$.data.pageInfo.totalElements").value(1));
     }
 
     private HubResponseDto sampleResponse(UUID id) {

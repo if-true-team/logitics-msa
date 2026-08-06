@@ -6,15 +6,20 @@ import com.iftrue.hub.domain.Hub;
 import com.iftrue.hub.domain.HubRepository;
 import com.iftrue.hub.global.exception.BusinessException;
 import com.iftrue.hub.global.exception.ErrorCode;
+import com.iftrue.hub.global.response.PageResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,6 +76,27 @@ public class HubServiceTest {
         verify(hubRepository, never()).save(any(Hub.class));
     }
 
+    @Test
+    @DisplayName("허브 목록을 조회하면 PageResponse로 변환해 반환한다")
+    void getHubs() {
+        Hub hub1 = hubWithId("서울특별시 센터", UUID.randomUUID());
+        Hub hub2 = hubWithId("부산광역시 센터", UUID.randomUUID());
+        Pageable pageable = PageRequest.of(0, 10);
+        given(hubRepository.findAllByDeletedAtIsNull(any(Pageable.class)))
+                .willReturn(new PageImpl<>(List.of(hub1, hub2), pageable, 2));
+
+        PageResponse<HubResponseDto> response = hubService.getHubs(pageable);
+
+        assertThat(response.content())
+                .extracting(HubResponseDto::name)
+                .containsExactly("서울특별시 센터", "부산광역시 센터");
+        assertThat(response.pageInfo().paginationType()).isEqualTo("OFFSET");
+        assertThat(response.pageInfo().page()).isZero();
+        assertThat(response.pageInfo().size()).isEqualTo(10);
+        assertThat(response.pageInfo().totalElements()).isEqualTo(2);
+        assertThat(response.pageInfo().totalPages()).isEqualTo(1);
+    }
+
     private HubCreateRequestDto hubCreateRequest(String name) {
         HubCreateRequestDto request = new HubCreateRequestDto();
         ReflectionTestUtils.setField(request, "name", name);
@@ -78,5 +104,12 @@ public class HubServiceTest {
         ReflectionTestUtils.setField(request, "latitude", new BigDecimal("10.555555"));
         ReflectionTestUtils.setField(request, "longitude", new BigDecimal("120.333333"));
         return request;
+    }
+
+    private Hub hubWithId(String name, UUID id) {
+        Hub hub = Hub.create(name, "테스트 주소",
+                new BigDecimal("37.123456"), new BigDecimal("126.123456"));
+        ReflectionTestUtils.setField(hub, "id", id);
+        return hub;
     }
 }

@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -48,6 +50,22 @@ class HubRepositoryTest {
         Optional<Hub> found = hubRepository.findByIdAndDeletedAtIsNull(saved.getId());
 
         assertThat(found).isEmpty();
+    }
+
+    @Test
+    @DisplayName("허브 목록 조회 시 soft delete된 허브는 제외된다")
+    void findAllActiveHubs() {
+        Hub save1 = hubRepository.save(hub("서울특별시 센터"));
+        Hub save2 = hubRepository.save(hub("부산광역시 센터"));
+        Hub deleted = hub("대구광역시 센터");
+        deleted.softDelete(UUID.randomUUID());
+        Hub deletedSaved = hubRepository.save(deleted);
+
+        Page<Hub> page = hubRepository.findAllByDeletedAtIsNull(PageRequest.of(0, 100));
+
+        assertThat(page.getContent()).extracting(Hub::getId)
+                .contains(save1.getId(), save2.getId())
+                .doesNotContain(deletedSaved.getId());
     }
 
     private Hub hub(String name) {
