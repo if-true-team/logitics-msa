@@ -32,6 +32,7 @@ public class HubService {
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final Set<String> ALLOWED_SORT = Set.of("createdAt", "updatedAt", "name");
     private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
+    private static final String ROLE_MASTER = "MASTER";
 
     private final HubRepository hubRepository;
 
@@ -39,6 +40,7 @@ public class HubService {
 
     @Transactional
     public HubResponseDto createHub(HubCreateRequestDto request) {
+        checkMasterRole();
 
         if (hubRepository.existsByNameAndDeletedAtIsNull(request.getName())) {
             throw new BusinessException(ErrorCode.HUB_NAME_DUPLICATED);
@@ -89,6 +91,8 @@ public class HubService {
 
     @Transactional
     public HubResponseDto updateHub(UUID hubId, HubUpdateRequestDto request) {
+        checkMasterRole();
+
         Hub hub = getHubOrThrow(hubId);
         String newName = resolveNewName(hub, request.getName());
 
@@ -101,6 +105,8 @@ public class HubService {
 
     @Transactional
     public void deleteHub(UUID hubId) {
+        checkMasterRole();
+
         Hub hub = getHubOrThrow(hubId);
 
         hub.softDelete(currentUserProvider.getCurrentUserId());
@@ -108,6 +114,12 @@ public class HubService {
         // TODO: HubRoute 구현 후, 해당 허브가 출발 또는 도착인 경로도 함께 soft delete
 
         log.info("[Hub] 허브 삭제 완료 id={}", hubId);
+    }
+
+    private void checkMasterRole() {
+        if (!ROLE_MASTER.equals(currentUserProvider.getCurrentUserRole())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
     }
 
     private Hub getHubOrThrow(UUID hubId) {
