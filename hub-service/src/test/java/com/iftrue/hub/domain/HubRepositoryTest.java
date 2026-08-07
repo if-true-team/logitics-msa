@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
@@ -17,7 +18,7 @@ import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -82,6 +83,28 @@ class HubRepositoryTest {
         assertThat(page.getContent()).extracting(Hub::getId)
                 .contains(seoul.getId())
                 .doesNotContain(busan.getId(), deletedSaved.getId());
+    }
+
+    @Test
+    @DisplayName("soft delete되지 않은 허브 이름 중복 저장 시 유니크 인덱스 예외가 발생한다")
+    void rejectDuplicateActiveName() {
+        hubRepository.saveAndFlush(hub("서울특별시 센터"));
+
+        assertThatThrownBy(() ->
+                hubRepository.saveAndFlush(hub("서울특별시 센터")))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("soft delete된 허브 이름은 다시 등록할 수 있다")
+    void allowReuseNameAfterSoftDelete() {
+        Hub first = hubRepository.saveAndFlush(hub("부산광역시 센터"));
+        first.softDelete(UUID.randomUUID());
+        hubRepository.saveAndFlush(first);
+
+        assertThatCode(() ->
+                hubRepository.saveAndFlush(hub("부산광역시 센터")))
+                .doesNotThrowAnyException();
     }
 
     private Hub hub(String name) {
