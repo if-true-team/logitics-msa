@@ -6,6 +6,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -37,6 +38,25 @@ public class GlobalExceptionHandler {
         }
 
         log.warn("[Hub] 입력값 검증 실패: {}", errors);
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ErrorResponse.of(errorCode, errors));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatchException(MethodArgumentTypeMismatchException exception) {
+
+        ErrorCode errorCode = ErrorCode.INVALID_INPUT_VALUE;
+
+        String requiredType = exception.getRequiredType() != null
+                ? exception.getRequiredType().getSimpleName()
+                : "올바른";
+
+        Map<String, Object> errors = new LinkedHashMap<>();
+        errors.put(exception.getName(), requiredType + " 형식이어야 합니다.");
+
+        log.warn("[Hub] 요청 인자 타입 불일치: param={}, value={}, requiredType={}", exception.getName(), exception.getValue(), requiredType);
 
         return ResponseEntity
                 .status(errorCode.getStatus())
