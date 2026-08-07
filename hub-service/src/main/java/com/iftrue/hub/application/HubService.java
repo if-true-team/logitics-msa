@@ -42,9 +42,7 @@ public class HubService {
     public HubResponseDto createHub(HubCreateRequestDto request) {
         checkMasterRole();
 
-        if (hubRepository.existsByNameAndDeletedAtIsNull(request.getName())) {
-            throw new BusinessException(ErrorCode.HUB_NAME_DUPLICATED);
-        }
+        String name = resolveName(request.getName(), null);
 
         Hub hub = Hub.create(
                 request.getName(),
@@ -94,7 +92,7 @@ public class HubService {
         checkMasterRole();
 
         Hub hub = getHubOrThrow(hubId);
-        String newName = resolveNewName(hub, request.getName());
+        String newName = resolveName(request.getName(), hub.getName());
 
         hub.update(newName, request.getAddress(), request.getLatitude(), request.getLongitude());
 
@@ -127,14 +125,14 @@ public class HubService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.HUB_NOT_FOUND));
     }
 
-    private String resolveNewName(Hub hub, String rawName) {
+    private String resolveName(String rawName, String currentName) {
         if (rawName == null) {
             return null;
         }
 
         String normalized = rawName.trim();
 
-        if (!normalized.equals(hub.getName())
+        if (!normalized.equals(currentName)
                 && hubRepository.existsByNameAndDeletedAtIsNull(normalized)) {
             throw new BusinessException(ErrorCode.HUB_NAME_DUPLICATED);
         }
