@@ -1,6 +1,7 @@
 package com.iftrue.hub.global.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -61,6 +62,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(errorCode.getStatus())
                 .body(ErrorResponse.of(errorCode, errors));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(DataIntegrityViolationException exception) {
+
+        ErrorCode errorCode = ErrorCode.HUB_NAME_DUPLICATED;
+
+        // TODO: hub_route 추가 시 분기 수정 고려할 것
+        log.warn("[Hub] 허브 이름 중복으로 데이터 무결성 제약 조건 위반: {}", exception.getMostSpecificCause().getMessage());
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ErrorResponse.of(errorCode));
     }
 
     @ExceptionHandler(Exception.class)
