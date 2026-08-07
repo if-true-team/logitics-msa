@@ -3,6 +3,7 @@ package com.iftrue.hub.presentation;
 import com.iftrue.hub.application.HubService;
 import com.iftrue.hub.application.dto.HubCreateRequestDto;
 import com.iftrue.hub.application.dto.HubResponseDto;
+import com.iftrue.hub.application.dto.HubUpdateRequestDto;
 import com.iftrue.hub.global.response.ApiResponse;
 import com.iftrue.hub.global.response.PageResponse;
 import jakarta.validation.Valid;
@@ -55,6 +56,15 @@ public class HubController {
             @PageableDefault(size = 10) Pageable pageable
     ) {
         PageResponse<HubResponseDto> response = hubService.searchHub(keyword, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PatchMapping("/{hubId}")
+    public ResponseEntity<ApiResponse<HubResponseDto>> updateHub(
+            @PathVariable UUID hubId,
+            @Valid @RequestBody HubUpdateRequestDto request
+    ) {
+        HubResponseDto response = hubService.updateHub(hubId, request);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

@@ -2,6 +2,7 @@ package com.iftrue.hub.application;
 
 import com.iftrue.hub.application.dto.HubCreateRequestDto;
 import com.iftrue.hub.application.dto.HubResponseDto;
+import com.iftrue.hub.application.dto.HubUpdateRequestDto;
 import com.iftrue.hub.domain.Hub;
 import com.iftrue.hub.domain.HubRepository;
 import com.iftrue.hub.global.exception.BusinessException;
@@ -82,6 +83,36 @@ public class HubService {
         log.info("[Hub] 허브 검색 keyword={} totalElements={}", keyword, hubPage.getTotalElements());
 
         return PageResponse.from(hubPage);
+    }
+
+    @Transactional
+    public HubResponseDto updateHub(UUID hubId, HubUpdateRequestDto request) {
+
+        Hub hub = hubRepository.findByIdAndDeletedAtIsNull(hubId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HUB_NOT_FOUND));
+
+        String newName = resolveNewName(hub, request.getName());
+
+        hub.update(newName, request.getAddress(), request.getLatitude(), request.getLongitude());
+
+        log.info("[Hub] 허브 정보 수정 완료 id={}", hubId);
+
+        return HubResponseDto.from(hub);
+    }
+
+    private String resolveNewName(Hub hub, String rawName) {
+        if (rawName == null) {
+            return null;
+        }
+
+        String normalized = rawName.trim();
+
+        if (!normalized.equals(hub.getName())
+                && hubRepository.existsByNameAndDeletedAtIsNull(normalized)) {
+            throw new BusinessException(ErrorCode.HUB_NAME_DUPLICATED);
+        }
+
+        return normalized;
     }
 
     private Pageable toHubPageable(Pageable requestedPageable) {
