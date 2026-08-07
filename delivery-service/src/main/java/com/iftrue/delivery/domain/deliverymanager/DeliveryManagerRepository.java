@@ -1,8 +1,10 @@
 package com.iftrue.delivery.domain.deliverymanager;
 
+import java.util.Optional;
+
 public interface DeliveryManagerRepository {
-    
+
     DeliveryManager save(DeliveryManager deliveryManager);
 
-    DeliveryManager findById(Long id);
+    Optional<DeliveryManager> findById(Long id);
 }
