@@ -59,8 +59,7 @@ public class HubService {
     }
 
     public HubResponseDto getHub(UUID hubId) {
-        Hub hub = hubRepository.findByIdAndDeletedAtIsNull(hubId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.HUB_NOT_FOUND));
+        Hub hub = getHubOrThrow(hubId);
 
         log.info("[Hub] 허브 단건 조회 id={}", hubId);
 
@@ -90,10 +89,7 @@ public class HubService {
 
     @Transactional
     public HubResponseDto updateHub(UUID hubId, HubUpdateRequestDto request) {
-
-        Hub hub = hubRepository.findByIdAndDeletedAtIsNull(hubId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.HUB_NOT_FOUND));
-
+        Hub hub = getHubOrThrow(hubId);
         String newName = resolveNewName(hub, request.getName());
 
         hub.update(newName, request.getAddress(), request.getLatitude(), request.getLongitude());
@@ -105,15 +101,18 @@ public class HubService {
 
     @Transactional
     public void deleteHub(UUID hubId) {
-
-        Hub hub = hubRepository.findByIdAndDeletedAtIsNull(hubId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.HUB_NOT_FOUND));
+        Hub hub = getHubOrThrow(hubId);
 
         hub.softDelete(currentUserProvider.getCurrentUserId());
 
         // TODO: HubRoute 구현 후, 해당 허브가 출발 또는 도착인 경로도 함께 soft delete
 
         log.info("[Hub] 허브 삭제 완료 id={}", hubId);
+    }
+
+    private Hub getHubOrThrow(UUID hubId) {
+        return hubRepository.findByIdAndDeletedAtIsNull(hubId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HUB_NOT_FOUND));
     }
 
     private String resolveNewName(Hub hub, String rawName) {
