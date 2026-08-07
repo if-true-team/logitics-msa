@@ -8,6 +8,7 @@ import com.iftrue.hub.domain.HubRepository;
 import com.iftrue.hub.global.exception.BusinessException;
 import com.iftrue.hub.global.exception.ErrorCode;
 import com.iftrue.hub.global.response.PageResponse;
+import com.iftrue.hub.global.security.CurrentUserProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -33,6 +34,8 @@ public class HubService {
     private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
 
     private final HubRepository hubRepository;
+
+    private final CurrentUserProvider currentUserProvider;
 
     @Transactional
     public HubResponseDto createHub(HubCreateRequestDto request) {
@@ -98,6 +101,19 @@ public class HubService {
         log.info("[Hub] 허브 정보 수정 완료 id={}", hubId);
 
         return HubResponseDto.from(hub);
+    }
+
+    @Transactional
+    public void deleteHub(UUID hubId) {
+
+        Hub hub = hubRepository.findByIdAndDeletedAtIsNull(hubId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HUB_NOT_FOUND));
+
+        hub.softDelete(currentUserProvider.getCurrentUserId());
+
+        // TODO: HubRoute 구현 후, 해당 허브가 출발 또는 도착인 경로도 함께 soft delete
+
+        log.info("[Hub] 허브 삭제 완료 id={}", hubId);
     }
 
     private String resolveNewName(Hub hub, String rawName) {

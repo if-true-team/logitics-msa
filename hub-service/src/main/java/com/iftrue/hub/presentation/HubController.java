@@ -4,6 +4,7 @@ import com.iftrue.hub.application.HubService;
 import com.iftrue.hub.application.dto.HubCreateRequestDto;
 import com.iftrue.hub.application.dto.HubResponseDto;
 import com.iftrue.hub.application.dto.HubUpdateRequestDto;
+import com.iftrue.hub.domain.Hub;
 import com.iftrue.hub.global.response.ApiResponse;
 import com.iftrue.hub.global.response.PageResponse;
 import jakarta.validation.Valid;
@@ -66,5 +67,11 @@ public class HubController {
     ) {
         HubResponseDto response = hubService.updateHub(hubId, request);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @DeleteMapping("/{hubId}")
+    public ResponseEntity<ApiResponse<Void>> deleteHub(@PathVariable UUID hubId) {
+        hubService.deleteHub(hubId);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }
