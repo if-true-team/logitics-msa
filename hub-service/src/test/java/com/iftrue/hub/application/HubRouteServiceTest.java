@@ -1,6 +1,8 @@
 package com.iftrue.hub.application;
 
 import com.iftrue.hub.application.dto.HubRouteCreateRequestDto;
+import com.iftrue.hub.application.dto.HubRouteResponseDto;
+import com.iftrue.hub.application.dto.HubRouteUpdateRequestDto;
 import com.iftrue.hub.domain.HubRepository;
 import com.iftrue.hub.domain.HubRoute;
 import com.iftrue.hub.domain.HubRouteRepository;
@@ -22,6 +24,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -112,6 +115,22 @@ class HubRouteServiceTest {
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
     }
 
+    @Test
+    @DisplayName("이동 경로 수정 시 전달된 필드만 반영하고 미전송 필드는 기존 값을 유지한다")
+    void updateRouteKeepsUntouchedFields() {
+        UUID routeId = UUID.randomUUID();
+        HubRoute route = routeWithId(routeId, 300, "325.50");
+        given(currentUserProvider.getCurrentUserRole()).willReturn("MASTER");
+        given(hubRouteRepository.findByIdAndDeletedAtIsNull(routeId)).willReturn(Optional.of(route));
+
+        HubRouteUpdateRequestDto request = updateRequest(null, "201.10");
+
+        HubRouteResponseDto response = hubRouteService.updateHubRoute(routeId, request);
+
+        assertThat(response.durationMinutes()).isEqualTo(300);
+        assertThat(response.distanceKm()).isEqualByComparingTo("201.10");
+    }
+
     private HubRouteCreateRequestDto createRequest(
             UUID departureHubId, UUID arrivalHubId, Integer durationMinutes, String distanceKm) {
         HubRouteCreateRequestDto request = new HubRouteCreateRequestDto();
@@ -119,6 +138,21 @@ class HubRouteServiceTest {
         ReflectionTestUtils.setField(request, "arrivalHubId", arrivalHubId);
         ReflectionTestUtils.setField(request, "durationMinutes", durationMinutes);
         ReflectionTestUtils.setField(request, "distanceKm", new BigDecimal(distanceKm));
+        return request;
+    }
+
+    private HubRoute routeWithId(UUID id, Integer durationMinutes, String distanceKm) {
+        HubRoute route = HubRoute.create(
+                UUID.randomUUID(), UUID.randomUUID(), durationMinutes, new BigDecimal(distanceKm));
+        ReflectionTestUtils.setField(route, "id", id);
+        return route;
+    }
+
+    private HubRouteUpdateRequestDto updateRequest(Integer durationMinutes, String distanceKm) {
+        HubRouteUpdateRequestDto request = new HubRouteUpdateRequestDto();
+        ReflectionTestUtils.setField(request, "durationMinutes", durationMinutes);
+        ReflectionTestUtils.setField(request, "distanceKm",
+                distanceKm == null ? null : new BigDecimal(distanceKm));
         return request;
     }
 }
