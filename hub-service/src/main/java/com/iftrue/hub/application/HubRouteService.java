@@ -114,6 +114,15 @@ public class HubRouteService {
         return HubRouteResponseDto.from(hubRoute);
     }
 
+    @Transactional
+    public void deleteHubRoute(UUID routeId) {
+        checkMasterRole();
+        HubRoute hubRoute = getHubRouteOrThrow(routeId);
+        hubRoute.softDelete(currentUserProvider.getCurrentUserId());
+
+        log.info("[HubRoute] 허브 이동 경로 삭제 완료 id={}", routeId);
+    }
+
     private Pageable toRoutePageable(Pageable requestedPageable) {
 
         int pageSize = ALLOWED_SIZES.contains(requestedPageable.getPageSize())
