@@ -143,6 +143,51 @@ class HubRouteRepositoryTest {
                 .doesNotContain(deletedRouteId);
     }
 
+    @Test
+    @DisplayName("검색 시 출발 허브로 필터링하면 해당 허브에서 출발하는 경로만 반환되고 역방향은 제외된다")
+    void searchByDepartureHubReturnsOnlyDepartingRoutes() {
+        UUID hubA = hubRepository.save(hub("검색 방향 허브1")).getId();
+        UUID hubB = hubRepository.save(hub("검색 방향 허브2")).getId();
+
+        UUID aToB = hubRouteRepository.saveAndFlush(
+                HubRoute.create(hubA, hubB, 300, new BigDecimal("325.50"))).getId();
+        UUID bToA = hubRouteRepository.saveAndFlush(
+                HubRoute.create(hubB, hubA, 310, new BigDecimal("326.00"))).getId();
+
+        entityManager.clear();
+
+        Page<HubRoute> page = hubRouteRepository.search(hubA, null, PageRequest.of(0, 10));
+
+        assertThat(page.getContent())
+                .extracting(HubRoute::getId)
+                .contains(aToB)
+                .doesNotContain(bToA);
+    }
+
+    @Test
+    @DisplayName("검색 결과에서 soft delete된 이동 경로는 제외된다")
+    void searchExcludesSoftDeletedRoutes() {
+        UUID hubC = hubRepository.save(hub("검색 제외 허브1")).getId();
+        UUID hubD = hubRepository.save(hub("검색 제외 허브2")).getId();
+
+        UUID activeRouteId = hubRouteRepository.saveAndFlush(
+                HubRoute.create(hubC, hubD, 300, new BigDecimal("325.50"))).getId();
+        HubRoute deletedRoute = hubRouteRepository.saveAndFlush(
+                HubRoute.create(hubD, hubC, 310, new BigDecimal("326.00")));
+        UUID deletedRouteId = deletedRoute.getId();
+        deletedRoute.softDelete(UUID.randomUUID());
+        hubRouteRepository.saveAndFlush(deletedRoute);
+
+        entityManager.clear();
+
+        Page<HubRoute> page = hubRouteRepository.search(null, null, PageRequest.of(0, 10));
+
+        assertThat(page.getContent())
+                .extracting(HubRoute::getId)
+                .contains(activeRouteId)
+                .doesNotContain(deletedRouteId);
+    }
+
     private String extractConstraintName(DataIntegrityViolationException exception) {
         Throwable cause = exception;
         while (cause != null) {

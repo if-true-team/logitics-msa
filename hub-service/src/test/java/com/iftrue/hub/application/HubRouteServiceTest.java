@@ -99,6 +99,19 @@ class HubRouteServiceTest {
         assertThat(appliedPageable.getSort().getOrderFor("distanceKm")).isNull();
     }
 
+    @Test
+    @DisplayName("검색 시 허용되지 않은 size는 기본 size(10)로 보정된다")
+    void searchClampsDisallowedPageSizeToDefault() {
+        given(hubRouteRepository.search(any(), any(), any(Pageable.class)))
+                .willReturn(new PageImpl<>(List.of()));
+
+        hubRouteService.searchHubRoutes(null, null, PageRequest.of(0, 25));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(hubRouteRepository).search(any(), any(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
+    }
+
     private HubRouteCreateRequestDto createRequest(
             UUID departureHubId, UUID arrivalHubId, Integer durationMinutes, String distanceKm) {
         HubRouteCreateRequestDto request = new HubRouteCreateRequestDto();
