@@ -2,6 +2,7 @@ package com.iftrue.hub.application;
 
 import com.iftrue.hub.application.dto.HubRouteCreateRequestDto;
 import com.iftrue.hub.application.dto.HubRouteResponseDto;
+import com.iftrue.hub.application.dto.HubRouteUpdateRequestDto;
 import com.iftrue.hub.domain.HubRepository;
 import com.iftrue.hub.domain.HubRoute;
 import com.iftrue.hub.domain.HubRouteRepository;
@@ -99,6 +100,18 @@ public class HubRouteService {
                 departureHubId, arrivalHubId, hubRoutePage.getTotalElements());
 
         return PageResponse.from(hubRoutePage);
+    }
+
+    @Transactional
+    public HubRouteResponseDto updateHubRoute(UUID routeId, HubRouteUpdateRequestDto request) {
+        checkMasterRole();
+
+        HubRoute hubRoute = getHubRouteOrThrow(routeId);
+        hubRoute.update(request.getDurationMinutes(), request.getDistanceKm());
+
+        log.info("[HubRoute] 허브 이동 경로 정보 수정 완료 id={}", routeId);
+
+        return HubRouteResponseDto.from(hubRoute);
     }
 
     private Pageable toRoutePageable(Pageable requestedPageable) {

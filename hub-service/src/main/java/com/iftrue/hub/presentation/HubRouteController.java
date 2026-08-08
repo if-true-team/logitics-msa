@@ -3,6 +3,7 @@ package com.iftrue.hub.presentation;
 import com.iftrue.hub.application.HubRouteService;
 import com.iftrue.hub.application.dto.HubRouteCreateRequestDto;
 import com.iftrue.hub.application.dto.HubRouteResponseDto;
+import com.iftrue.hub.application.dto.HubRouteUpdateRequestDto;
 import com.iftrue.hub.global.response.ApiResponse;
 import com.iftrue.hub.global.response.PageResponse;
 import jakarta.validation.Valid;
@@ -57,6 +58,15 @@ public class HubRouteController {
     ) {
         PageResponse<HubRouteResponseDto> response = hubRouteService.searchHubRoutes(
                 departureHubId, arrivalHubId, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PatchMapping("/{routeId}")
+    public ResponseEntity<ApiResponse<HubRouteResponseDto>> updateHubRoute(
+            @PathVariable UUID routeId,
+            @Valid @RequestBody HubRouteUpdateRequestDto request
+    ) {
+        HubRouteResponseDto response = hubRouteService.updateHubRoute(routeId, request);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }
