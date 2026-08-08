@@ -45,4 +45,13 @@ public class Hub extends BaseEntity {
 
         return hub;
     }
+
+    public void update(
+            String name, String address, BigDecimal latitude, BigDecimal longitude
+    ) {
+        if (name != null) { this.name = name; }
+        if (address != null) { this.address = address; }
+        if (latitude != null) { this.latitude = latitude; }
+        if (longitude != null) { this.longitude = longitude; }
+    }
 }

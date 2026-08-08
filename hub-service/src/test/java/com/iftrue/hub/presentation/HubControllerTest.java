@@ -26,6 +26,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -80,6 +81,18 @@ class HubControllerTest {
         mockMvc.perform(post("/api/v1/hubs")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("H-006"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.errors.name").exists());
+    }
+
+    @Test
+    @DisplayName("허브 수정 시 이름이 공백이면 H-006 에러를 반환한다")
+    void updateHubBlankName() throws Exception {
+        mockMvc.perform(patch("/api/v1/hubs/{hubId}", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"name\": \"   \" }"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("H-006"))
                 .andExpect(jsonPath("$.status").value(400))

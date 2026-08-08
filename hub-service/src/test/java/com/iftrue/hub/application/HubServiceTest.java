@@ -2,11 +2,13 @@ package com.iftrue.hub.application;
 
 import com.iftrue.hub.application.dto.HubCreateRequestDto;
 import com.iftrue.hub.application.dto.HubResponseDto;
+import com.iftrue.hub.application.dto.HubUpdateRequestDto;
 import com.iftrue.hub.domain.Hub;
 import com.iftrue.hub.domain.HubRepository;
 import com.iftrue.hub.global.exception.BusinessException;
 import com.iftrue.hub.global.exception.ErrorCode;
 import com.iftrue.hub.global.response.PageResponse;
+import com.iftrue.hub.global.security.CurrentUserProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +24,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +42,9 @@ public class HubServiceTest {
     @Mock
     private HubRepository hubRepository;
 
+    @Mock
+    private CurrentUserProvider currentUserProvider;
+
     @InjectMocks
     private HubService hubService;
 
@@ -48,6 +54,7 @@ public class HubServiceTest {
         UUID hubId = UUID.randomUUID();
         HubCreateRequestDto request = hubCreateRequest("서울특별시 센터");
 
+        given(currentUserProvider.getCurrentUserRole()).willReturn("MASTER");
         given(hubRepository.existsByNameAndDeletedAtIsNull("서울특별시 센터")).willReturn(false);
         given(hubRepository.save(any(Hub.class)))
                 .willAnswer(invocation -> {
@@ -70,6 +77,7 @@ public class HubServiceTest {
     @DisplayName("허브가 이미 존재하면 허브 생성에 실패한다")
     void createHubDuplicate() {
         HubCreateRequestDto request = hubCreateRequest("서울특별시 센터");
+        given(currentUserProvider.getCurrentUserRole()).willReturn("MASTER");
         given(hubRepository.existsByNameAndDeletedAtIsNull("서울특별시 센터")).willReturn(true);
 
         assertThatThrownBy(() -> hubService.createHub(request))
@@ -77,6 +85,54 @@ public class HubServiceTest {
                 .hasMessageContaining(ErrorCode.HUB_NAME_DUPLICATED.getMessage());
 
         verify(hubRepository, never()).save(any(Hub.class));
+    }
+
+    @Test
+    @DisplayName("허브 수정 시 전달된 필드만 부분 반영하고 미전송 이름은 반영되지 않는다")
+    void updateHubPartial() {
+        UUID hubId = UUID.randomUUID();
+        Hub hub = hubWithId("서울특별시 센터", hubId);
+        given(currentUserProvider.getCurrentUserRole()).willReturn("MASTER");
+        given(hubRepository.findByIdAndDeletedAtIsNull(hubId)).willReturn(Optional.of(hub));
+
+        HubUpdateRequestDto request = hubUpdateRequest(null, "서울특별시 강남구 테헤란로 100", null, null);
+
+        HubResponseDto response = hubService.updateHub(hubId, request);
+
+        assertThat(response.name()).isEqualTo("서울특별시 센터");
+        assertThat(response.address()).isEqualTo("서울특별시 강남구 테헤란로 100");
+        verify(hubRepository, never()).existsByNameAndDeletedAtIsNull(anyString());
+    }
+
+    @Test
+    @DisplayName("허브 수정 시 이름에 변경 사항이 없으면 이름 중복 검사를 건너뛴다")
+    void updateHubSameNameSkipsDuplicateCheck() {
+        UUID hubId = UUID.randomUUID();
+        Hub hub = hubWithId("서울특별시 센터", hubId);
+        given(currentUserProvider.getCurrentUserRole()).willReturn("MASTER");
+        given(hubRepository.findByIdAndDeletedAtIsNull(hubId)).willReturn(Optional.of(hub));
+
+        HubUpdateRequestDto request = hubUpdateRequest("서울특별시 센터", null, null, null);
+
+        hubService.updateHub(hubId, request);
+
+        verify(hubRepository, never()).existsByNameAndDeletedAtIsNull(anyString());
+    }
+
+    @Test
+    @DisplayName("허브 수정 시 존재하는 다른 허브와 이름이 중복되면 H-002 에러가 발생한다")
+    void updateHubDuplicateName() {
+        UUID hubId = UUID.randomUUID();
+        Hub hub = hubWithId("서울특별시 센터", hubId);
+        given(currentUserProvider.getCurrentUserRole()).willReturn("MASTER");
+        given(hubRepository.findByIdAndDeletedAtIsNull(hubId)).willReturn(Optional.of(hub));
+        given(hubRepository.existsByNameAndDeletedAtIsNull("부산광역시 센터")).willReturn(true);
+
+        HubUpdateRequestDto request = hubUpdateRequest("부산광역시 센터", null, null, null);
+
+        assertThatThrownBy(() -> hubService.updateHub(hubId, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.HUB_NAME_DUPLICATED.getMessage());
     }
 
     @Test
@@ -135,6 +191,15 @@ public class HubServiceTest {
         ReflectionTestUtils.setField(request, "address", "서울특별시 송파구 송파대로 55");
         ReflectionTestUtils.setField(request, "latitude", new BigDecimal("10.555555"));
         ReflectionTestUtils.setField(request, "longitude", new BigDecimal("120.333333"));
+        return request;
+    }
+
+    private HubUpdateRequestDto hubUpdateRequest(String name, String address, BigDecimal latitude, BigDecimal longitude) {
+        HubUpdateRequestDto request = new HubUpdateRequestDto();
+        ReflectionTestUtils.setField(request, "name", name);
+        ReflectionTestUtils.setField(request, "address", address);
+        ReflectionTestUtils.setField(request, "latitude", latitude);
+        ReflectionTestUtils.setField(request, "longitude", longitude);
         return request;
     }
 

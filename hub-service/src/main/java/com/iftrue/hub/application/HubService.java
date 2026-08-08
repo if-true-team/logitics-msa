@@ -2,11 +2,13 @@ package com.iftrue.hub.application;
 
 import com.iftrue.hub.application.dto.HubCreateRequestDto;
 import com.iftrue.hub.application.dto.HubResponseDto;
+import com.iftrue.hub.application.dto.HubUpdateRequestDto;
 import com.iftrue.hub.domain.Hub;
 import com.iftrue.hub.domain.HubRepository;
 import com.iftrue.hub.global.exception.BusinessException;
 import com.iftrue.hub.global.exception.ErrorCode;
 import com.iftrue.hub.global.response.PageResponse;
+import com.iftrue.hub.global.security.CurrentUserProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -30,15 +32,17 @@ public class HubService {
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final Set<String> ALLOWED_SORT = Set.of("createdAt", "updatedAt", "name");
     private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
+    private static final String ROLE_MASTER = "MASTER";
 
     private final HubRepository hubRepository;
 
+    private final CurrentUserProvider currentUserProvider;
+
     @Transactional
     public HubResponseDto createHub(HubCreateRequestDto request) {
+        checkMasterRole();
 
-        if (hubRepository.existsByNameAndDeletedAtIsNull(request.getName())) {
-            throw new BusinessException(ErrorCode.HUB_NAME_DUPLICATED);
-        }
+        String name = resolveName(request.getName(), null);
 
         Hub hub = Hub.create(
                 request.getName(),
@@ -55,8 +59,7 @@ public class HubService {
     }
 
     public HubResponseDto getHub(UUID hubId) {
-        Hub hub = hubRepository.findByIdAndDeletedAtIsNull(hubId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.HUB_NOT_FOUND));
+        Hub hub = getHubOrThrow(hubId);
 
         log.info("[Hub] 허브 단건 조회 id={}", hubId);
 
@@ -82,6 +85,59 @@ public class HubService {
         log.info("[Hub] 허브 검색 keyword={} totalElements={}", keyword, hubPage.getTotalElements());
 
         return PageResponse.from(hubPage);
+    }
+
+    @Transactional
+    public HubResponseDto updateHub(UUID hubId, HubUpdateRequestDto request) {
+        checkMasterRole();
+
+        Hub hub = getHubOrThrow(hubId);
+        String newName = resolveName(request.getName(), hub.getName());
+
+        hub.update(newName, request.getAddress(), request.getLatitude(), request.getLongitude());
+
+        log.info("[Hub] 허브 정보 수정 완료 id={}", hubId);
+
+        return HubResponseDto.from(hub);
+    }
+
+    @Transactional
+    public void deleteHub(UUID hubId) {
+        checkMasterRole();
+
+        Hub hub = getHubOrThrow(hubId);
+
+        hub.softDelete(currentUserProvider.getCurrentUserId());
+
+        // TODO: HubRoute 구현 후, 해당 허브가 출발 또는 도착인 경로도 함께 soft delete
+
+        log.info("[Hub] 허브 삭제 완료 id={}", hubId);
+    }
+
+    private void checkMasterRole() {
+        if (!ROLE_MASTER.equals(currentUserProvider.getCurrentUserRole())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    private Hub getHubOrThrow(UUID hubId) {
+        return hubRepository.findByIdAndDeletedAtIsNull(hubId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HUB_NOT_FOUND));
+    }
+
+    private String resolveName(String rawName, String currentName) {
+        if (rawName == null) {
+            return null;
+        }
+
+        String normalized = rawName.trim();
+
+        if (!normalized.equals(currentName)
+                && hubRepository.existsByNameAndDeletedAtIsNull(normalized)) {
+            throw new BusinessException(ErrorCode.HUB_NAME_DUPLICATED);
+        }
+
+        return normalized;
     }
 
     private Pageable toHubPageable(Pageable requestedPageable) {
