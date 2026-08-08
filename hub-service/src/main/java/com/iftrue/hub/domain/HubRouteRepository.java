@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,4 +30,11 @@ public interface HubRouteRepository extends JpaRepository<HubRoute, UUID> {
                           @Param("arrivalHubId") UUID arrivalHubId,
                           Pageable pageable
     );
+
+    @Query("""
+                SELECT hr FROM HubRoute hr
+                WHERE hr.deletedAt IS NULL
+                AND (hr.departureHubId = :hubId OR hr.arrivalHubId = :hubId)
+            """)
+    List<HubRoute> findActiveRoutesByHubId(@Param("hubId") UUID hubId);
 }

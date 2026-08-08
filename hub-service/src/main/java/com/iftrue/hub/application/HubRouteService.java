@@ -123,6 +123,14 @@ public class HubRouteService {
         log.info("[HubRoute] 허브 이동 경로 삭제 완료 id={}", routeId);
     }
 
+    @Transactional
+    public void softDeleteRoutesByHub(UUID hubId, UUID userId) {
+        List<HubRoute> routes = hubRouteRepository.findActiveRoutesByHubId(hubId);
+        routes.forEach(route -> route.softDelete(userId));
+
+        log.info("[HubRoute] 허브 삭제 시 연관 경로 soft delete 완료 hubId={}, count={}", hubId, routes.size());
+    }
+
     private Pageable toRoutePageable(Pageable requestedPageable) {
 
         int pageSize = ALLOWED_SIZES.contains(requestedPageable.getPageSize())
