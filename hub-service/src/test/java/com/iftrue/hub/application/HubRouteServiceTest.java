@@ -10,14 +10,21 @@ import com.iftrue.hub.global.security.CurrentUserProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -71,6 +78,25 @@ class HubRouteServiceTest {
                 .hasMessageContaining(ErrorCode.HUB_ROUTE_DUPLICATED.getMessage());
 
         verify(hubRouteRepository, never()).save(any(HubRoute.class));
+    }
+
+    @Test
+    @DisplayName("허용되지 않은 정렬 필드는 기본 정렬(createdAt DESC)로 보정된다")
+    void unsupportedSortFieldFallsBackToCreatedAtDescending() {
+        given(hubRouteRepository.findAllByDeletedAtIsNull(any(Pageable.class)))
+                .willReturn(new PageImpl<>(List.of()));
+        Pageable request = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "distanceKm"));
+
+        hubRouteService.getHubRoutes(request);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(hubRouteRepository).findAllByDeletedAtIsNull(pageableCaptor.capture());
+        Pageable appliedPageable = pageableCaptor.getValue();
+
+        Sort.Order defaultSort = appliedPageable.getSort().getOrderFor("createdAt");
+        assertThat(defaultSort).isNotNull();
+        assertThat(defaultSort.getDirection()).isEqualTo(Sort.Direction.DESC);
+        assertThat(appliedPageable.getSort().getOrderFor("distanceKm")).isNull();
     }
 
     private HubRouteCreateRequestDto createRequest(

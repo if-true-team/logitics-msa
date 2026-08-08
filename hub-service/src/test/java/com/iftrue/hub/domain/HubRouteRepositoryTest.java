@@ -12,6 +12,8 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -98,6 +100,47 @@ class HubRouteRepositoryTest {
         assertThatCode(() -> hubRouteRepository.saveAndFlush(
                 HubRoute.create(departureHubId, arrivalHubId, 300, new BigDecimal("325.50"))))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("soft delete된 이동 경로는 단건 조회에서 제외된다")
+    void softDeletedRouteRemainsInDatabaseButIsExcludedFromActiveLookup() {
+        UUID departureHubId = hubRepository.save(hub("단건 조회 출발 허브")).getId();
+        UUID arrivalHubId = hubRepository.save(hub("단건 조회 도착 허브")).getId();
+        HubRoute route = hubRouteRepository.saveAndFlush(
+                HubRoute.create(departureHubId, arrivalHubId, 300, new BigDecimal("325.50")));
+        UUID routeId = route.getId();
+        route.softDelete(UUID.randomUUID());
+        hubRouteRepository.saveAndFlush(route);
+
+        entityManager.clear();
+
+        assertThat(hubRouteRepository.findById(routeId)).isPresent();
+        assertThat(hubRouteRepository.findByIdAndDeletedAtIsNull(routeId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("soft delete된 이동 경로는 목록 조회에서 제외된다")
+    void softDeletedRouteIsExcludedFromActiveRouteList() {
+        UUID hubA = hubRepository.save(hub("목록 조회 허브1")).getId();
+        UUID hubB = hubRepository.save(hub("목록 조회 허브2")).getId();
+
+        UUID activeRouteId = hubRouteRepository.saveAndFlush(
+                HubRoute.create(hubA, hubB, 300, new BigDecimal("325.50"))).getId();
+        HubRoute deletedRoute = hubRouteRepository.saveAndFlush(
+                HubRoute.create(hubB, hubA, 310, new BigDecimal("326.00")));
+        UUID deletedRouteId = deletedRoute.getId();
+        deletedRoute.softDelete(UUID.randomUUID());
+        hubRouteRepository.saveAndFlush(deletedRoute);
+
+        entityManager.clear();
+
+        Page<HubRoute> page = hubRouteRepository.findAllByDeletedAtIsNull(PageRequest.of(0, 10));
+
+        assertThat(page.getContent())
+                .extracting(HubRoute::getId)
+                .contains(activeRouteId)
+                .doesNotContain(deletedRouteId);
     }
 
     private String extractConstraintName(DataIntegrityViolationException exception) {
