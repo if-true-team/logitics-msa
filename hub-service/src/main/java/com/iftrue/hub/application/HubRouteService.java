@@ -7,12 +7,19 @@ import com.iftrue.hub.domain.HubRoute;
 import com.iftrue.hub.domain.HubRouteRepository;
 import com.iftrue.hub.global.exception.BusinessException;
 import com.iftrue.hub.global.exception.ErrorCode;
+import com.iftrue.hub.global.response.PageResponse;
 import com.iftrue.hub.global.security.CurrentUserProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -22,6 +29,11 @@ import java.util.UUID;
 public class HubRouteService {
 
     private static final String ROLE_MASTER = "MASTER";
+    private static final Set<Integer> ALLOWED_SIZES = Set.of(10, 30, 50);
+    private static final int DEFAULT_PAGE_SIZE = 10;
+    private static final Set<String> ALLOWED_SORT = Set.of("createdAt", "updatedAt");
+    private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
+
 
     private final HubRouteRepository hubRouteRepository;
     private final HubRepository hubRepository;
@@ -66,6 +78,38 @@ public class HubRouteService {
         log.info("[HubRoute] 허브 이동 경로 단건 조회 id={}", routeId);
 
         return HubRouteResponseDto.from(hubRoute);
+    }
+
+    public PageResponse<HubRouteResponseDto> getHubRoutes(Pageable pageable) {
+        Page<HubRouteResponseDto> hubRoutePage = hubRouteRepository.findAllByDeletedAtIsNull(toRoutePageable(pageable))
+                .map(HubRouteResponseDto::from);
+
+        log.info("[HubRoute] 허브 이동 경로 목록 조회 page={}, size={}, totalElements={}",
+                hubRoutePage.getNumber(), hubRoutePage.getSize(), hubRoutePage.getTotalElements());
+
+        return PageResponse.from(hubRoutePage);
+    }
+
+    private Pageable toRoutePageable(Pageable requestedPageable) {
+
+        int pageSize = ALLOWED_SIZES.contains(requestedPageable.getPageSize())
+                ? requestedPageable.getPageSize()
+                : DEFAULT_PAGE_SIZE;
+
+        List<Sort.Order> validSortOrders = requestedPageable.getSort()
+                .stream()
+                .filter(order -> ALLOWED_SORT.contains(order.getProperty()))
+                .toList();
+
+        Sort resolvedSort = validSortOrders.isEmpty()
+                ? DEFAULT_SORT
+                : Sort.by(validSortOrders);
+
+        return PageRequest.of(
+                requestedPageable.getPageNumber(),
+                pageSize,
+                resolvedSort
+        );
     }
 
     private HubRoute getHubRouteOrThrow(UUID routeId) {
