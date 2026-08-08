@@ -48,4 +48,15 @@ public class HubRouteController {
         PageResponse<HubRouteResponseDto> response = hubRouteService.getHubRoutes(pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<PageResponse<HubRouteResponseDto>>> searchHubRoutes(
+            @RequestParam(required = false) UUID departureHubId,
+            @RequestParam(required = false) UUID arrivalHubId,
+            @PageableDefault(size = 10) Pageable pageable
+    ) {
+        PageResponse<HubRouteResponseDto> response = hubRouteService.searchHubRoutes(
+                departureHubId, arrivalHubId, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }

@@ -34,7 +34,6 @@ public class HubRouteService {
     private static final Set<String> ALLOWED_SORT = Set.of("createdAt", "updatedAt");
     private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
 
-
     private final HubRouteRepository hubRouteRepository;
     private final HubRepository hubRepository;
     private final CurrentUserProvider currentUserProvider;
@@ -86,6 +85,18 @@ public class HubRouteService {
 
         log.info("[HubRoute] 허브 이동 경로 목록 조회 page={}, size={}, totalElements={}",
                 hubRoutePage.getNumber(), hubRoutePage.getSize(), hubRoutePage.getTotalElements());
+
+        return PageResponse.from(hubRoutePage);
+    }
+
+    public PageResponse<HubRouteResponseDto> searchHubRoutes(
+            UUID departureHubId, UUID arrivalHubId, Pageable pageable) {
+
+        Page<HubRouteResponseDto> hubRoutePage = hubRouteRepository.search(departureHubId, arrivalHubId, toRoutePageable(pageable))
+                .map(HubRouteResponseDto::from);
+
+        log.info("[HubRoute] 허브 이동 경로 검색 departureHubId={}, arrivalHubId={}, totalElements={}",
+                departureHubId, arrivalHubId, hubRoutePage.getTotalElements());
 
         return PageResponse.from(hubRoutePage);
     }
