@@ -45,7 +45,7 @@ public class HubService {
         String name = resolveName(request.getName(), null);
 
         Hub hub = Hub.create(
-                request.getName(),
+                name,
                 request.getAddress(),
                 request.getLatitude(),
                 request.getLongitude()
