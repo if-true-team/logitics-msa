@@ -60,6 +60,19 @@ public class HubRouteService {
         return HubRouteResponseDto.from(savedHubRoute);
     }
 
+    public HubRouteResponseDto getHubRoute(UUID routeId) {
+        HubRoute hubRoute = getHubRouteOrThrow(routeId);
+
+        log.info("[HubRoute] 허브 이동 경로 단건 조회 id={}", routeId);
+
+        return HubRouteResponseDto.from(hubRoute);
+    }
+
+    private HubRoute getHubRouteOrThrow(UUID routeId) {
+        return hubRouteRepository.findByIdAndDeletedAtIsNull(routeId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HUB_ROUTE_NOT_FOUND));
+    }
+
     private void validateHubExists(UUID hubId) {
         if (!hubRepository.existsByIdAndDeletedAtIsNull(hubId)) {
             throw new BusinessException(ErrorCode.HUB_NOT_FOUND);
