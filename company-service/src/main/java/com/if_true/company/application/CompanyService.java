@@ -48,7 +48,9 @@ public class CompanyService {
 	}
 
 	@Transactional
-	public CompanyResponse create(CompanyRequest request, UUID actorId) {
+	public CompanyResponse create(
+			CompanyRequest request
+	) {
 		validateHubExists(request.hubId());
 		Company company = Company.create(
 			request.companyName(),
@@ -80,8 +82,7 @@ public class CompanyService {
 	@Transactional
 	public CompanyResponse update(
 			UUID id,
-			CompanyUpdateRequest request,
-			UUID actorId
+			CompanyUpdateRequest request
 	) {
 		Company company = findActiveCompany(id);
 		if (request.hubId() != null) {

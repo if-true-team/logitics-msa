@@ -39,7 +39,8 @@ public class CompanyController {
 		@RequestHeader("X-User-Id") UUID actorId,
 		@Valid @RequestBody CompanyRequest request
 	) {
-		CompanyResponse response = companyService.create(request, actorId);
+		CompanyResponse response =
+				companyService.create(request);
 		return ResponseEntity.created(URI.create("/api/v1/companies/" + response.id())).body(response);
 	}
 
@@ -67,7 +68,7 @@ public class CompanyController {
 		@RequestHeader("X-User-Id") UUID actorId,
 		@Valid @RequestBody CompanyUpdateRequest request
 	) {
-		return companyService.update(id, request, actorId);
+		return companyService.update(id, request);
 	}
 
 	@DeleteMapping("/{id}")
