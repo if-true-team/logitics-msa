@@ -27,19 +27,39 @@ public class Company extends BaseEntity {
 	protected Company() {
 	}
 
-	private Company(String companyName, CompanyType companyType, UUID hubId, String companyAddress, UUID actorId) {
+	private Company(
+			String companyName,
+			CompanyType companyType,
+			UUID hubId,
+			String companyAddress
+	) {
 		this.companyName = companyName;
 		this.companyType = companyType;
 		this.hubId = hubId;
 		this.companyAddress = companyAddress;
-		initializeAudit(actorId);
+
 	}
 
-	public static Company create(String companyName, CompanyType companyType, UUID hubId, String companyAddress, UUID actorId) {
-		return new Company(companyName, companyType, hubId, companyAddress, actorId);
+	public static Company create(
+			String companyName,
+			CompanyType companyType,
+			UUID hubId,
+			String companyAddress
+			) {
+		return new Company(
+				companyName,
+				companyType,
+				hubId,
+				companyAddress
+		);
 	}
 
-	public void update(String companyName, CompanyType companyType, UUID hubId, String companyAddress, UUID actorId) {
+	public void update(
+			String companyName,
+			CompanyType companyType,
+			UUID hubId,
+			String companyAddress
+			) {
 		if (companyName != null) {
 			this.companyName = companyName;
 		}
@@ -52,7 +72,7 @@ public class Company extends BaseEntity {
 		if (companyAddress != null) {
 			this.companyAddress = companyAddress;
 		}
-		markUpdated(actorId);
+
 	}
 
 	public void delete(UUID actorId) {

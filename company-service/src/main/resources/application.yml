@@ -5,7 +5,7 @@ spring:
   application:
     name: company-service
   datasource:
-    url: ${COMPANY_DB_URL:${POSTGRES_URL:jdbc:postgresql://localhost:5432/logistics}}
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/logistics}
     username: ${COMPANY_DB_USERNAME:${POSTGRES_USER:iftrue}}
     password: ${COMPANY_DB_PASSWORD:${POSTGRES_PASSWORD:iftrue1234}}
     driver-class-name: org.postgresql.Driver

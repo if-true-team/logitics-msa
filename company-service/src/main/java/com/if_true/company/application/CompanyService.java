@@ -18,7 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
+import com.if_true.company.infrastructure.CompanySpecification;
 
 @Service
 @Transactional(readOnly = true)
@@ -54,8 +54,7 @@ public class CompanyService {
 			request.companyName(),
 			request.companyType(),
 			request.hubId(),
-			request.companyAddress(),
-			actorId
+			request.companyAddress()
 		);
 		return CompanyResponse.from(companyRepository.save(company));
 	}
@@ -64,21 +63,36 @@ public class CompanyService {
 		return CompanyResponse.from(findActiveCompany(id));
 	}
 
-	public Page<CompanyResponse> search(String companyName, CompanyType companyType, UUID hubId, Pageable pageable) {
-		Specification<Company> spec = active()
-			.and(companyNameContains(companyName))
-			.and(companyTypeEquals(companyType))
-			.and(hubIdEquals(hubId));
-		return companyRepository.findAll(spec, pageable).map(CompanyResponse::from);
+	public Page<CompanyResponse> search(
+			String companyName,
+			CompanyType companyType,
+			UUID hubId,
+			Pageable pageable
+	) {
+		Specification<Company> spec = CompanySpecification.notDeleted()
+				.and(CompanySpecification.companyNameContains(companyName))
+				.and(CompanySpecification.companyTypeEquals(companyType))
+				.and(CompanySpecification.hubIdEquals(hubId));
+		return companyRepository.findAll(spec, pageable)
+				.map(CompanyResponse::from);
 	}
 
 	@Transactional
-	public CompanyResponse update(UUID id, CompanyUpdateRequest request, UUID actorId) {
+	public CompanyResponse update(
+			UUID id,
+			CompanyUpdateRequest request,
+			UUID actorId
+	) {
 		Company company = findActiveCompany(id);
 		if (request.hubId() != null) {
 			validateHubExists(request.hubId());
 		}
-		company.update(request.companyName(), request.companyType(), request.hubId(), request.companyAddress(), actorId);
+		company.update(
+				request.companyName(),
+				request.companyType(),
+				request.hubId(),
+				request.companyAddress()
+		);
 		return CompanyResponse.from(company);
 	}
 
@@ -86,7 +100,7 @@ public class CompanyService {
 	public void delete(UUID id, UUID actorId) {
 		Company company = findActiveCompany(id);
 		validateNoActiveProducts(id);
-		company.delete(actorId);
+		company.markDeleted(actorId);
 	}
 
 	private Company findActiveCompany(UUID id) {
@@ -94,28 +108,7 @@ public class CompanyService {
 			.orElseThrow(() -> new EntityNotFoundException("Company not found: " + id));
 	}
 
-	private Specification<Company> active() {
-		return (root, query, criteriaBuilder) -> criteriaBuilder.isNull(root.get("deletedAt"));
-	}
 
-	private Specification<Company> companyNameContains(String companyName) {
-		return (root, query, criteriaBuilder) -> {
-			if (!StringUtils.hasText(companyName)) {
-				return criteriaBuilder.conjunction();
-			}
-			return criteriaBuilder.like(criteriaBuilder.lower(root.get("companyName")), "%" + companyName.toLowerCase() + "%");
-		};
-	}
-
-	private Specification<Company> companyTypeEquals(CompanyType companyType) {
-		return (root, query, criteriaBuilder) ->
-			companyType == null ? criteriaBuilder.conjunction() : criteriaBuilder.equal(root.get("companyType"), companyType);
-	}
-
-	private Specification<Company> hubIdEquals(UUID hubId) {
-		return (root, query, criteriaBuilder) ->
-			hubId == null ? criteriaBuilder.conjunction() : criteriaBuilder.equal(root.get("hubId"), hubId);
-	}
 
 	private void validateHubExists(UUID hubId) {
 		if (!hubValidationEnabled) {
